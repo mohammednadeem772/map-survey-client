@@ -18,11 +18,14 @@ client/
     api.js              Axios instance — injects the stored JWT into every request
     App.jsx             Routes, auth context, protected-route wrapper, app shell/nav
     main.jsx             Vite/React entry point
+    components/
+      StatusPill.jsx      Color-coded survey status badge, shared by Dashboard + Surveys
     pages/
       Landing.jsx         Public landing page
       Login.jsx            Login form, stores JWT + user in localStorage
       SurveyForm.jsx       Create/edit household survey (new + existing by :id)
       Dashboard.jsx        KPI summary + charts, role-aware
+      Surveys.jsx          Full survey list — search, status/area filters, row actions
       Admin.jsx            Admin-only: areas, users, chart config management
     styles.css           Tailwind entry point + shared component classes (@layer components)
   index.html
@@ -48,6 +51,7 @@ if you add a new field, follow that same nesting or it won't pick up the spacing
 | `/` | Public | Landing page |
 | `/login` | Public | Login |
 | `/dashboard` | Authenticated | KPIs + charts |
+| `/surveys` | Authenticated | Full survey list: search, status/area filters, actions |
 | `/survey/new` | Authenticated | New household survey |
 | `/survey/:id` | Authenticated | View/edit an existing survey |
 | `/admin` | Admin only | Areas, users, chart configuration |
