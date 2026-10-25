@@ -77,6 +77,20 @@ Output goes to `dist/`. Serve it behind any static host (Nginx, Apache, Azure St
 docker build -t map-survey-client .
 docker run -p 8080:80 map-survey-client
 ```
+
+### Deploying to a cPanel static subdomain
+If the API runs as its own cPanel Node.js App on a separate subdomain (e.g.
+`api.your-domain.com` — see [map-survey-server's README](https://github.com/mohammednadeem772/map-survey-server#deploying-on-cpanel-without-terminalssh-access)
+for that side), this app deploys as plain static files, no Node runtime needed on this subdomain:
+
+1. Create the frontend's subdomain in cPanel (e.g. `survey.your-domain.com`), if not already done.
+2. Locally, set `VITE_API_URL` in `.env` to the API subdomain (e.g. `https://api.your-domain.com/api`),
+   then run `npm run build`.
+3. Upload everything inside `dist/` (not the `dist` folder itself) into that subdomain's document
+   root via cPanel's **File Manager** — e.g. `~/survey.your-domain.com/` or wherever the subdomain
+   points, shown on cPanel's Domains page.
+4. Make sure the API's `CLIENT_ORIGIN` environment variable matches this subdomain's URL exactly
+   (including `https://`), or the browser will block API requests with a CORS error.
 The image builds the app with Vite and serves the static output through Nginx. `nginx.conf` proxies `/api/` to an `api` host on port 4000 — this matches the service name used in the project's `docker-compose.yml`, so when running standalone you'll want to adjust that proxy target or front it with your own reverse proxy.
 
 ## Demo accounts
