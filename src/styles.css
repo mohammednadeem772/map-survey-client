@@ -245,13 +245,30 @@
     @apply w-auto;
   }
   .row-actions {
-    @apply flex items-center gap-4 whitespace-nowrap;
+    @apply flex items-center gap-1 whitespace-nowrap;
   }
-  .row-actions .link {
-    @apply text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50;
+  .surveyor-cell {
+    @apply flex flex-col;
+  }
+  .surveyor-email {
+    @apply text-xs text-slate-400;
   }
   .empty-state {
     @apply py-10 text-center text-sm text-slate-400;
+  }
+
+  /* Icon-only row action button (see components/IconButton.jsx) */
+  .icon-btn {
+    @apply inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 disabled:pointer-events-none disabled:opacity-40;
+  }
+  .icon-btn-svg {
+    @apply h-4 w-4;
+  }
+  .icon-btn-success {
+    @apply hover:bg-teal-50 hover:text-teal-700;
+  }
+  .icon-btn-danger {
+    @apply hover:bg-rose-50 hover:text-rose-600;
   }
 
   /* Survey form: step tabs */

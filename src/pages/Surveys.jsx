@@ -4,9 +4,11 @@
 // scopeWhere), so search/filter here are plain client-side list operations,
 // no extra endpoints needed.
 import React, { useEffect, useMemo, useState } from 'react';
+import { SquarePen, CircleCheck, Trash2 } from 'lucide-react';
 import { api } from '../api';
 import { useAuth } from '../App';
 import StatusPill from '../components/StatusPill';
+import IconButton from '../components/IconButton';
 
 const STATUSES = ['DRAFT', 'SUBMITTED', 'VERIFIED', 'RETURNED'];
 
@@ -18,9 +20,10 @@ export default function Surveys() {
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [areaFilter, setAreaFilter] = useState('');
-  const [verifyingId, setVerifyingId] = useState(null);
+  const [busyId, setBusyId] = useState(null);
 
   const canVerify = user.role === 'ADMIN' || user.role === 'SUPERVISOR';
+  const canDelete = (s) => user.role === 'ADMIN' || s.surveyor_id === user.id;
 
   function load() {
     setLoading(true);
@@ -42,18 +45,29 @@ export default function Surveys() {
       if (statusFilter && s.status !== statusFilter) return false;
       if (areaFilter && s.area_name !== areaFilter) return false;
       if (!q) return true;
-      return [s.survey_code, s.head_name, s.phone, s.area_name, s.surveyor_name]
+      return [s.survey_code, s.head_name, s.phone, s.area_name, s.surveyor_name, s.surveyor_email]
         .some((field) => field?.toLowerCase().includes(q));
     });
   }, [surveys, query, statusFilter, areaFilter]);
 
   async function verify(id) {
-    setVerifyingId(id);
+    setBusyId(id);
     try {
       await api.put(`/surveys/${id}`, { status: 'VERIFIED' });
       await load();
     } finally {
-      setVerifyingId(null);
+      setBusyId(null);
+    }
+  }
+
+  async function remove(s) {
+    if (!window.confirm(`Delete survey ${s.survey_code} (${s.head_name || 'no name'})? This cannot be undone.`)) return;
+    setBusyId(s.id);
+    try {
+      await api.delete(`/surveys/${s.id}`);
+      await load();
+    } finally {
+      setBusyId(null);
     }
   }
 
@@ -116,21 +130,34 @@ export default function Surveys() {
                   <td>{s.head_name || '—'}</td>
                   <td>{s.phone || '—'}</td>
                   <td>{s.area_name}</td>
-                  <td>{s.surveyor_name}</td>
+                  <td>
+                    <div className="surveyor-cell">
+                      <span>{s.surveyor_name}</span>
+                      <span className="surveyor-email">{s.surveyor_email}</span>
+                    </div>
+                  </td>
                   <td><StatusPill status={s.status} /></td>
                   <td>{s.surveyed_at ? new Date(s.surveyed_at).toLocaleDateString('en-IN') : '—'}</td>
                   <td>
                     <div className="row-actions">
-                      <a className="link" href={`/survey/${s.id}`}>View / Edit</a>
+                      <IconButton icon={SquarePen} label="View / Edit" href={`/survey/${s.id}`} />
                       {canVerify && s.status === 'SUBMITTED' && (
-                        <button
-                          type="button"
-                          className="link"
-                          disabled={verifyingId === s.id}
+                        <IconButton
+                          icon={CircleCheck}
+                          label="Verify"
+                          variant="success"
+                          disabled={busyId === s.id}
                           onClick={() => verify(s.id)}
-                        >
-                          {verifyingId === s.id ? 'Verifying…' : 'Verify'}
-                        </button>
+                        />
+                      )}
+                      {canDelete(s) && (
+                        <IconButton
+                          icon={Trash2}
+                          label="Delete"
+                          variant="danger"
+                          disabled={busyId === s.id}
+                          onClick={() => remove(s)}
+                        />
                       )}
                     </div>
                   </td>
