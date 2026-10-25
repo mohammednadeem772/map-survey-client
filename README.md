@@ -6,6 +6,7 @@ This app is the field/admin UI: surveyors fill household surveys, supervisors an
 
 ## Tech stack
 - React 18 + Vite
+- Tailwind CSS v4 (via `@tailwindcss/vite`) for styling
 - React Router v6 (client-side routing)
 - Axios (API client with JWT interceptor)
 - Recharts (dashboard charts)
@@ -23,12 +24,23 @@ client/
       SurveyForm.jsx       Create/edit household survey (new + existing by :id)
       Dashboard.jsx        KPI summary + charts, role-aware
       Admin.jsx            Admin-only: areas, users, chart config management
-    styles.css           Global styles
+    styles.css           Tailwind entry point + shared component classes (@layer components)
   index.html
+  vite.config.js        Registers the React and Tailwind Vite plugins
   nginx.conf            Nginx config used in the production Docker image
   Dockerfile            Multi-stage build: Vite build -> served by nginx
   .env.example
 ```
+
+### Styling approach
+Components use plain, semantic class names (`.card`, `.btn`, `.steps`, `.field-grid`, ...) rather
+than long inline Tailwind utility strings in JSX — each one is defined once in `src/styles.css`
+under `@layer components` using `@apply`. To restyle something, edit the matching rule in
+`styles.css` rather than adding ad-hoc classes to a component; to add a new piece of UI, prefer
+reusing an existing class or defining a new one there, consistent with the rest of the file.
+Bare `<label>`, `<input>`, `<select>`, `<textarea>` elements are styled globally (`@layer base`),
+since every form input in this app is nested inside its `<label>` (e.g. `<label>Email<input/></label>`) —
+if you add a new field, follow that same nesting or it won't pick up the spacing/label styling.
 
 ## Routes
 | Path | Access | Purpose |
@@ -77,6 +89,7 @@ Output goes to `dist/`. Serve it behind any static host (Nginx, Apache, Azure St
 docker build -t map-survey-client .
 docker run -p 8080:80 map-survey-client
 ```
+The image builds the app with Vite and serves the static output through Nginx. `nginx.conf` proxies `/api/` to an `api` host on port 4000 — this matches the service name used in the project's `docker-compose.yml`, so when running standalone you'll want to adjust that proxy target or front it with your own reverse proxy.
 
 ### Deploying to a cPanel static subdomain
 If the API runs as its own cPanel Node.js App on a separate subdomain (e.g.
@@ -91,7 +104,6 @@ for that side), this app deploys as plain static files, no Node runtime needed o
    points, shown on cPanel's Domains page.
 4. Make sure the API's `CLIENT_ORIGIN` environment variable matches this subdomain's URL exactly
    (including `https://`), or the browser will block API requests with a CORS error.
-The image builds the app with Vite and serves the static output through Nginx. `nginx.conf` proxies `/api/` to an `api` host on port 4000 — this matches the service name used in the project's `docker-compose.yml`, so when running standalone you'll want to adjust that proxy target or front it with your own reverse proxy.
 
 ## Demo accounts
 When the paired server has `SEED_DEMO_USERS=true`, you can sign in with:
