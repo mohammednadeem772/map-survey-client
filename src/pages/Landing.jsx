@@ -1,2 +1,58 @@
-import React from 'react'; import {Link} from 'react-router-dom';
-export default function Landing(){return <div className="landing"><header><strong>Mohalla Adoption Program</strong><Link className="btn secondary" to="/login">Team login</Link></header><section className="hero"><div><span className="eyebrow">MAP • Vaniyambadi</span><h1>Household insight for focused, dignified community development.</h1><p>This survey helps identify education, livelihood, housing, health, documentation, and welfare needs at mohalla level. The information supports evidence-based planning, transparent prioritisation, and measurable follow-up.</p><div className="actions"><Link className="btn" to="/login">Start field work</Link><a className="btn secondary" href="#purpose">Understand the purpose</a></div></div><div className="hero-card"><h3>Community outcomes</h3><div className="impact"><b>01</b><span>Understand household needs</span><b>02</b><span>Prioritise support fairly</span><b>03</b><span>Track improvement over time</span></div></div></section><section id="purpose" className="grid3"><article><h3>Secure collection</h3><p>Role-based access keeps surveyors limited to their entries and supervisors restricted to assigned wards.</p></article><article><h3>Whole-family view</h3><p>Capture household, spouse, dependant, student, livelihood, documentation, health, and housing indicators.</p></article><article><h3>Actionable statistics</h3><p>Area and surveyor progress, coverage, vulnerability, income and dwelling charts support program decisions.</p></article></section><footer><b>An initiative by Zakat Center India, Vaniyambadi Unit</b><span>In collaboration with The Vaniyambadi Muslim Educational Society (VMES)</span></footer></div>}
+// Public marketing/intro page — no auth required.
+import React from 'react';
+import { Link } from 'react-router-dom';
+
+export default function Landing() {
+  return (
+    <div className="landing">
+      <header>
+        <strong>Mohalla Adoption Program</strong>
+        <Link className="btn secondary" to="/login">Team login</Link>
+      </header>
+
+      <section className="hero">
+        <div>
+          <span className="eyebrow">MAP • Vaniyambadi</span>
+          <h1>Household insight for focused, dignified community development.</h1>
+          <p>
+            This survey helps identify education, livelihood, housing, health, documentation, and
+            welfare needs at mohalla level. The information supports evidence-based planning,
+            transparent prioritisation, and measurable follow-up.
+          </p>
+          <div className="actions">
+            <Link className="btn" to="/login">Start field work</Link>
+            <a className="btn secondary" href="#purpose">Understand the purpose</a>
+          </div>
+        </div>
+        <div className="hero-card">
+          <h3>Community outcomes</h3>
+          <div className="impact">
+            <b>01</b><span>Understand household needs</span>
+            <b>02</b><span>Prioritise support fairly</span>
+            <b>03</b><span>Track improvement over time</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="purpose" className="grid3">
+        <article>
+          <h3>Secure collection</h3>
+          <p>Role-based access keeps surveyors limited to their entries and supervisors restricted to assigned wards.</p>
+        </article>
+        <article>
+          <h3>Whole-family view</h3>
+          <p>Capture household, spouse, dependant, student, livelihood, documentation, health, and housing indicators.</p>
+        </article>
+        <article>
+          <h3>Actionable statistics</h3>
+          <p>Area and surveyor progress, coverage, vulnerability, income and dwelling charts support program decisions.</p>
+        </article>
+      </section>
+
+      <footer>
+        <b>An initiative by Zakat Center India, Vaniyambadi Unit</b>
+        <span>In collaboration with The Vaniyambadi Muslim Educational Society (VMES)</span>
+      </footer>
+    </div>
+  );
+}

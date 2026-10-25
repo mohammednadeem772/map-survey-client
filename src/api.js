@@ -1,4 +1,16 @@
-// Axios instance injects the current JWT into every API call.
+// Shared Axios instance for every API call made by the app.
+// Nothing outside this file should call fetch/axios directly — components and
+// pages import `api` from here so the token header stays in one place.
 import axios from 'axios';
-export const api=axios.create({baseURL:import.meta.env.VITE_API_URL||'/api'});
-api.interceptors.request.use(c=>{const t=localStorage.getItem('map_token');if(t)c.headers.Authorization=`Bearer ${t}`;return c;});
+
+export const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || '/api',
+});
+
+// Attach the signed-in user's JWT (saved at login, see pages/Login.jsx) to
+// every outgoing request.
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('map_token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
