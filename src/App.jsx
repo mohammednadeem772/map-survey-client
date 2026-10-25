@@ -7,6 +7,7 @@ import Landing from './pages/Landing';
 import Login from './pages/Login';
 import SurveyForm from './pages/SurveyForm';
 import Dashboard from './pages/Dashboard';
+import Surveys from './pages/Surveys';
 import Admin from './pages/Admin';
 
 export const Auth = createContext(null);
@@ -21,6 +22,7 @@ function Shell({ children }) {
         <Link to="/dashboard" className="brand">MAP Survey</Link>
         <nav>
           <Link to="/dashboard">Dashboard</Link>
+          <Link to="/surveys">Surveys</Link>
           <Link to="/survey/new">New Survey</Link>
           {user?.role === 'ADMIN' && <Link to="/admin">Admin</Link>}
           <button className="link" onClick={logout}>Logout</button>
@@ -54,6 +56,7 @@ export default function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<Protected><Dashboard /></Protected>} />
+        <Route path="/surveys" element={<Protected><Surveys /></Protected>} />
         <Route path="/survey/new" element={<Protected><SurveyForm /></Protected>} />
         <Route path="/survey/:id" element={<Protected><SurveyForm /></Protected>} />
         <Route path="/admin" element={<Protected roles={['ADMIN']}><Admin /></Protected>} />

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../api';
 import { useAuth } from '../App';
+import StatusPill from '../components/StatusPill';
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell,
 } from 'recharts';
@@ -90,7 +91,10 @@ export default function Dashboard() {
       </section>
 
       <section className="card">
-        <h2>Recent surveys</h2>
+        <div className="page-head mb-4">
+          <h2>Recent surveys</h2>
+          <a className="link" href="/surveys">View all surveys →</a>
+        </div>
         <div className="table-wrap">
           <table>
             <thead>
@@ -103,17 +107,18 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody>
-              {surveys.map((s) => (
+              {surveys.slice(0, 5).map((s) => (
                 <tr key={s.id}>
                   <td><a href={`/survey/${s.id}`}>{s.survey_code}</a></td>
                   <td>{s.head_name}</td>
                   <td>{s.area_name}</td>
                   <td>{s.surveyor_name}</td>
-                  <td><span className="pill">{s.status}</span></td>
+                  <td><StatusPill status={s.status} /></td>
                 </tr>
               ))}
             </tbody>
           </table>
+          {surveys.length === 0 && <p className="empty-state">No surveys yet.</p>}
         </div>
       </section>
     </>

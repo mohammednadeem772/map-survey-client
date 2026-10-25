@@ -160,6 +160,12 @@
   .error {
     @apply rounded-lg bg-red-50 px-3 py-2.5 text-sm font-medium text-red-700;
   }
+  /* Softer cousin of .error for "you're not done yet" notices (e.g. the
+     survey form's incomplete-required-fields banner) rather than a hard
+     failure like a login error. */
+  .notice {
+    @apply rounded-lg border border-rose-200 bg-rose-50/70 px-3.5 py-2.5 text-sm font-medium text-rose-700;
+  }
 
   /* Shared page header */
   .page-head {
@@ -218,6 +224,26 @@
     @apply text-lg font-bold text-slate-900;
   }
 
+  /* Surveys listing: search + filters bar, per-row actions, empty state */
+  .survey-filters {
+    @apply mb-5 flex flex-wrap items-center gap-3;
+  }
+  .survey-search {
+    @apply min-w-[240px] flex-1;
+  }
+  .survey-filters select {
+    @apply w-auto;
+  }
+  .row-actions {
+    @apply flex items-center gap-4 whitespace-nowrap;
+  }
+  .row-actions .link {
+    @apply text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .empty-state {
+    @apply py-10 text-center text-sm text-slate-400;
+  }
+
   /* Survey form: step tabs */
   .steps {
     @apply mb-5 flex gap-2 overflow-x-auto pb-1;
@@ -243,10 +269,55 @@
     @apply mb-4 text-lg font-bold text-slate-900;
   }
   .field-grid {
-    @apply grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3;
+    @apply grid grid-cols-1 gap-x-5 gap-y-5 sm:grid-cols-2 lg:grid-cols-3;
   }
   .wide {
     @apply sm:col-span-2;
+  }
+
+  /* Softer "needs attention" state for an empty required field — a gentle
+     rose tint rather than a harsh red border, used by both <Input> and the
+     combobox <Select> below. */
+  .input-invalid {
+    @apply border-rose-300 bg-rose-50/60 focus:border-rose-400;
+  }
+
+  /* Searchable dropdown (replaces native <select> everywhere in this form —
+     see the Select component in SurveyForm.jsx). .combo-label intentionally
+     duplicates the base `label` look (grid/gap/weight) since this component
+     doesn't nest its control inside a <label>. */
+  .combo {
+    @apply relative;
+  }
+  .combo-label {
+    @apply mb-1.5 block text-sm font-semibold text-slate-700;
+  }
+  .combo-trigger {
+    @apply flex w-full items-center justify-between gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-left text-sm text-slate-900 shadow-sm transition hover:border-slate-400 focus:border-teal-600 focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-teal-600/30;
+  }
+  .combo-trigger-invalid {
+    @apply border-rose-300 bg-rose-50/60;
+  }
+  .combo-chevron {
+    @apply h-4 w-4 shrink-0 text-slate-400;
+  }
+  .combo-panel {
+    @apply absolute z-20 mt-1.5 w-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg shadow-slate-900/10;
+  }
+  .combo-search {
+    @apply w-full rounded-none border-0 border-b border-slate-200 px-3.5 py-2.5 text-sm shadow-none focus:border-slate-200 focus:outline-none;
+  }
+  .combo-list {
+    @apply max-h-56 overflow-y-auto p-1;
+  }
+  .combo-option {
+    @apply block w-full rounded-md px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-teal-50 hover:text-teal-800;
+  }
+  .combo-option-active {
+    @apply bg-teal-50 font-semibold text-teal-800;
+  }
+  .combo-empty {
+    @apply px-3 py-4 text-center text-sm text-slate-400;
   }
   .checkbox {
     @apply mb-5 flex items-center gap-2.5;

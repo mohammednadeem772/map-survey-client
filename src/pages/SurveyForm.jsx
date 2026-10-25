@@ -1,7 +1,7 @@
 // Multi-step household survey form — used for both "new" (/survey/new) and
 // "edit" (/survey/:id). Mirrors the field set the server accepts; see
 // server/src/routes/surveys.routes.js `WRITABLE_FIELDS` for the source of truth.
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { useNavigate, useParams } from 'react-router-dom';
 
@@ -28,6 +28,30 @@ const emptySurvey = {
 // against a plain string just in case (e.g. hand-edited data).
 const parseJsonArray = (value) => (Array.isArray(value) ? value : value ? JSON.parse(value) : []);
 
+// Only step 1 (Household head) has hard-required fields — the rest of the
+// survey is intentionally optional/situational (e.g. not every household
+// has a spouse), matching the rest of the form. A field counts as missing
+// when it's empty/undefined/null; `0` is a valid age, so it isn't treated
+// as missing.
+const REQUIRED_STEP0_FIELDS = [
+  ['address', 'Address'],
+  ['phone', 'Phone'],
+  ['head_name', 'Head of family — Name'],
+  ['head_age', 'Head of family — Age'],
+  ['head_gender', 'Head of family — Gender'],
+  ['head_marital_status', 'Head of family — Marital status'],
+];
+
+function isEmptyValue(v) {
+  return v === undefined || v === null || v === '';
+}
+
+function getMissingStep0Fields(f) {
+  const missing = REQUIRED_STEP0_FIELDS.filter(([key]) => isEmptyValue(f[key])).map(([, label]) => label);
+  if (!f.consent_given) missing.unshift('Household informed consent');
+  return missing;
+}
+
 export default function SurveyForm() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -35,6 +59,10 @@ export default function SurveyForm() {
   const [areas, setAreas] = useState([]);
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [showStep0Errors, setShowStep0Errors] = useState(false);
+
+  const missingStep0Fields = getMissingStep0Fields(form);
+  const step0Complete = missingStep0Fields.length === 0;
 
   useEffect(() => {
     api.get('/areas').then((res) => {
@@ -62,9 +90,32 @@ export default function SurveyForm() {
   const toggle = (key, value) =>
     set(key, form[key]?.includes(value) ? form[key].filter((x) => x !== value) : [...(form[key] || []), value]);
 
+  // Moving past step 0 (and jumping to any later step via the tabs) is
+  // blocked until its required fields are filled in. Going backwards is
+  // always allowed — there's nothing to validate when reviewing earlier steps.
+  function goToStep(target) {
+    if (target > 0 && !step0Complete) {
+      setStep(0);
+      setShowStep0Errors(true);
+      return;
+    }
+    setStep(target);
+  }
+
+  // Save draft intentionally bypasses the required-field gate above — a
+  // surveyor should always be able to save in-progress work from any step.
+  // Consent stays required even for a draft: this app shouldn't persist any
+  // household data at all without it. A final (non-draft) submission still
+  // enforces the full step-0 requirement as a defensive check, even though
+  // goToStep already makes it unreachable otherwise.
   async function save(status) {
     if (!form.consent_given) {
       return alert('Consent is required before saving this survey.');
+    }
+    if (status === 'SUBMITTED' && !step0Complete) {
+      setStep(0);
+      setShowStep0Errors(true);
+      return;
     }
     setSaving(true);
     try {
@@ -90,7 +141,7 @@ export default function SurveyForm() {
 
       <div className="steps">
         {steps.map((label, i) => (
-          <button className={i === step ? 'active' : ''} onClick={() => setStep(i)} key={label}>
+          <button type="button" className={i === step ? 'active' : ''} onClick={() => goToStep(i)} key={label}>
             {i + 1}
             <span>{label}</span>
           </button>
@@ -100,6 +151,11 @@ export default function SurveyForm() {
       <form className="card form" onSubmit={(e) => e.preventDefault()}>
         {step === 0 && (
           <>
+            {showStep0Errors && !step0Complete && (
+              <div className="notice mb-6">
+                Please complete before continuing: {missingStep0Fields.join(', ')}.
+              </div>
+            )}
             <Section title="Consent and location">
               <label className="checkbox">
                 <input
@@ -108,6 +164,7 @@ export default function SurveyForm() {
                   onChange={(e) => set('consent_given', e.target.checked)}
                 />
                 Household informed consent received
+                {showStep0Errors && !form.consent_given && <span className="text-rose-500"> *</span>}
               </label>
               <Grid>
                 <Select
@@ -117,13 +174,13 @@ export default function SurveyForm() {
                   set={set}
                   options={areas.map((a) => ({ value: a.id, label: `${a.name} (${a.ward_code})` }))}
                 />
-                <Input label="Address" k="address" v={form} set={set} wide required />
-                <Input label="Phone" k="phone" v={form} set={set} />
+                <Input label="Address" k="address" v={form} set={set} wide required showError={showStep0Errors} />
+                <Input label="Phone" k="phone" v={form} set={set} required showError={showStep0Errors} />
                 <Input label="Latitude" k="latitude" v={form} set={set} type="number" />
                 <Input label="Longitude" k="longitude" v={form} set={set} type="number" />
               </Grid>
             </Section>
-            <Person prefix="head" title="Head of the family" f={form} set={set} />
+            <Person prefix="head" title="Head of the family" f={form} set={set} requiredFields={['name', 'age', 'gender', 'marital_status']} showError={showStep0Errors} />
           </>
         )}
 
@@ -258,16 +315,16 @@ export default function SurveyForm() {
         {step === 5 && <Review f={form} />}
 
         <div className="form-actions">
-          <button className="btn secondary" disabled={step === 0} onClick={() => setStep(step - 1)}>
+          <button type="button" className="btn secondary" disabled={step === 0} onClick={() => setStep(step - 1)}>
             Back
           </button>
+          <button type="button" className="btn secondary" disabled={saving} onClick={() => save('DRAFT')}>
+            Save draft
+          </button>
           {step < 5 ? (
-            <button className="btn" onClick={() => setStep(step + 1)}>Continue</button>
+            <button type="button" className="btn" onClick={() => goToStep(step + 1)}>Continue</button>
           ) : (
-            <>
-              <button className="btn secondary" disabled={saving} onClick={() => save('DRAFT')}>Save draft</button>
-              <button className="btn" disabled={saving} onClick={() => save('SUBMITTED')}>Submit survey</button>
-            </>
+            <button type="button" className="btn" disabled={saving} onClick={() => save('SUBMITTED')}>Submit survey</button>
           )}
         </div>
       </form>
@@ -290,33 +347,103 @@ function Grid({ children }) {
   return <div className="field-grid">{children}</div>;
 }
 
-function Input({ label, k, v, set, type = 'text', wide = false, required = false }) {
+function Input({ label, k, v, set, type = 'text', wide = false, required = false, showError = false }) {
+  const invalid = required && showError && isEmptyValue(v[k]);
   return (
     <label className={wide ? 'wide' : ''}>
       {label}
+      {required && <span className="text-rose-500"> *</span>}
       <input
         type={type}
         value={v[k] ?? ''}
-        required={required}
+        className={invalid ? 'input-invalid' : ''}
         onChange={(e) => set(k, type === 'number' ? (e.target.value === '' ? '' : Number(e.target.value)) : e.target.value)}
       />
     </label>
   );
 }
 
-function Select({ label, k, v, set, options }) {
+// Searchable dropdown — a styled trigger button that opens a panel with a
+// search box + filtered option list, instead of a native <select> (which
+// has no search and is awkward to scan for fields like Occupation's 27
+// options). Keeps the same {label, k, v, set, options} shape the rest of
+// the form already uses, so every call site stays unchanged.
+function Select({ label, k, v, set, options, required = false, showError = false }) {
+  const normalized = options.map((o) => (typeof o === 'string' ? { value: o, label: o } : o));
+  const invalid = required && showError && isEmptyValue(v[k]);
+  const selected = normalized.find((o) => String(o.value) === String(v[k] ?? ''));
+
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const boxRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDocMouseDown(e) {
+      if (boxRef.current && !boxRef.current.contains(e.target)) {
+        setOpen(false);
+        setQuery('');
+      }
+    }
+    document.addEventListener('mousedown', onDocMouseDown);
+    return () => document.removeEventListener('mousedown', onDocMouseDown);
+  }, [open]);
+
+  const filtered = query.trim()
+    ? normalized.filter((o) => o.label.toLowerCase().includes(query.trim().toLowerCase()))
+    : normalized;
+
+  function choose(value) {
+    set(k, value);
+    setOpen(false);
+    setQuery('');
+  }
+
   return (
-    <label>
-      {label}
-      <select value={v[k] ?? ''} onChange={(e) => set(k, e.target.value)}>
-        <option value="">Select</option>
-        {options.map((o) =>
-          typeof o === 'string'
-            ? <option key={o}>{o}</option>
-            : <option key={o.value} value={o.value}>{o.label}</option>
-        )}
-      </select>
-    </label>
+    <div className="combo" ref={boxRef}>
+      <span className="combo-label">
+        {label}
+        {required && <span className="text-rose-500"> *</span>}
+      </span>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className={`combo-trigger ${invalid ? 'combo-trigger-invalid' : ''}`}
+      >
+        <span className={selected ? '' : 'text-slate-400'}>{selected ? selected.label : 'Select'}</span>
+        <svg viewBox="0 0 20 20" fill="currentColor" className="combo-chevron">
+          <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+        </svg>
+      </button>
+      {open && (
+        <div className="combo-panel">
+          {normalized.length > 6 && (
+            <input
+              autoFocus
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search..."
+              className="combo-search"
+            />
+          )}
+          <div className="combo-list">
+            <button type="button" onClick={() => choose('')} className="combo-option">Select</button>
+            {filtered.map((o) => (
+              <button
+                type="button"
+                key={o.value}
+                onClick={() => choose(o.value)}
+                className={`combo-option ${String(o.value) === String(v[k] ?? '') ? 'combo-option-active' : ''}`}
+              >
+                {o.label}
+              </button>
+            ))}
+            {filtered.length === 0 && <div className="combo-empty">No matches</div>}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -350,17 +477,25 @@ function Choices({ title, items, selected = [], toggle }) {
 }
 
 // Shared field set for both the household head and the spouse — `prefix`
-// picks which set of `${prefix}_*` fields to read/write.
-function Person({ prefix, title, f, set }) {
+// picks which set of `${prefix}_*` fields to read/write. `requiredFields`
+// (e.g. ['name','age',...]) marks matching fields as required — used for
+// the head of family on step 0; the spouse step passes none, since a spouse
+// section is only relevant to some households.
+function Person({ prefix, title, f, set, requiredFields = [], showError = false }) {
+  const isRequired = (field) => requiredFields.includes(field);
   return (
     <Section title={title}>
       <Grid>
-        <Input label="Name" k={`${prefix}_name`} v={f} set={set} />
-        <Input label="Age" k={`${prefix}_age`} v={f} set={set} type="number" />
-        <Select label="Gender" k={`${prefix}_gender`} v={f} set={set} options={['Male', 'Female', 'Other', 'Prefer not to say']} />
+        <Input label="Name" k={`${prefix}_name`} v={f} set={set} required={isRequired('name')} showError={showError} />
+        <Input label="Age" k={`${prefix}_age`} v={f} set={set} type="number" required={isRequired('age')} showError={showError} />
+        <Select
+          label="Gender" k={`${prefix}_gender`} v={f} set={set} options={['Male', 'Female', 'Other', 'Prefer not to say']}
+          required={isRequired('gender')} showError={showError}
+        />
         <Select
           label="Marital status" k={`${prefix}_marital_status`} v={f} set={set}
           options={['Married', 'Unmarried', 'Widowed', 'Separated/Divorced']}
+          required={isRequired('marital_status')} showError={showError}
         />
         <Select
           label="Education" k={`${prefix}_education`} v={f} set={set}
@@ -396,105 +531,54 @@ function Dependants({ f, set }) {
         <div className="dependant" key={i}>
           <div className="dependant-head">
             <h3>Member {i + 1}</h3>
-            <button className="danger" onClick={() => remove(i)}>Remove</button>
+            <button type="button" className="danger" onClick={() => remove(i)}>Remove</button>
           </div>
 
           <Grid>
-            <label>
-              Name
-              <input value={d.name} onChange={(e) => update(i, 'name', e.target.value)} />
-            </label>
-            <label>
-              Age
-              <input type="number" value={d.age || ''} onChange={(e) => update(i, 'age', Number(e.target.value))} />
-            </label>
-            <label>
-              Type
-              <select value={d.member_type} onChange={(e) => update(i, 'member_type', e.target.value)}>
-                <option>STUDENT</option>
-                <option>WORKING</option>
-                <option>DEPENDANT</option>
-              </select>
-            </label>
-            <label>
-              Relationship
-              <select value={d.relationship || ''} onChange={(e) => update(i, 'relationship', e.target.value)}>
-                <option value="">Select</option>
-                <option>Son</option>
-                <option>Daughter</option>
-                <option>Parent</option>
-                <option>Spouse</option>
-                <option>Other</option>
-              </select>
-            </label>
-            <label>
-              Gender
-              <select value={d.gender || ''} onChange={(e) => update(i, 'gender', e.target.value)}>
-                <option value="">Select</option>
-                <option>Male</option>
-                <option>Female</option>
-                <option>Other</option>
-              </select>
-            </label>
-            <label>
-              Education
-              <input value={d.education || ''} onChange={(e) => update(i, 'education', e.target.value)} />
-            </label>
+            <Input label="Name" k="name" v={d} set={(key, val) => update(i, key, val)} />
+            <Input label="Age" k="age" v={d} set={(key, val) => update(i, key, val)} type="number" />
+            <Select
+              label="Type" k="member_type" v={d} set={(key, val) => update(i, key, val || 'DEPENDANT')}
+              options={['STUDENT', 'WORKING', 'DEPENDANT']}
+            />
+            <Select
+              label="Relationship" k="relationship" v={d} set={(key, val) => update(i, key, val)}
+              options={['Son', 'Daughter', 'Parent', 'Spouse', 'Other']}
+            />
+            <Select
+              label="Gender" k="gender" v={d} set={(key, val) => update(i, key, val)}
+              options={['Male', 'Female', 'Other']}
+            />
+            <Input label="Education" k="education" v={d} set={(key, val) => update(i, key, val)} />
 
             {d.member_type === 'STUDENT' && (
               <>
-                <label>
-                  School / College
-                  <input value={d.institution || ''} onChange={(e) => update(i, 'institution', e.target.value)} />
-                </label>
-                <label>
-                  Scholarship availed
-                  <input value={d.scholarship_availed || ''} onChange={(e) => update(i, 'scholarship_availed', e.target.value)} />
-                </label>
+                <Input label="School / College" k="institution" v={d} set={(key, val) => update(i, key, val)} />
+                <Input label="Scholarship availed" k="scholarship_availed" v={d} set={(key, val) => update(i, key, val)} />
               </>
             )}
 
             {d.member_type === 'WORKING' && (
               <>
-                <label>
-                  Occupation
-                  <select value={d.occupation || ''} onChange={(e) => update(i, 'occupation', e.target.value)}>
-                    {occupations.map((x) => <option key={x}>{x}</option>)}
-                  </select>
-                </label>
-                <label>
-                  Income
-                  <input type="number" value={d.income || ''} onChange={(e) => update(i, 'income', Number(e.target.value))} />
-                </label>
+                <Select label="Occupation" k="occupation" v={d} set={(key, val) => update(i, key, val)} options={occupations} />
+                <Input label="Income" k="income" v={d} set={(key, val) => update(i, key, val)} type="number" />
               </>
             )}
 
-            <label>
-              Skill
-              <input value={d.skill || ''} onChange={(e) => update(i, 'skill', e.target.value)} />
-            </label>
-            <label>
-              Namaz
-              <select value={d.namaz || ''} onChange={(e) => update(i, 'namaz', e.target.value)}>
-                <option value="">Select</option>
-                <option>Regular 5 times</option>
-                <option>Often</option>
-                <option>Occasionally</option>
-                <option>Not currently</option>
-              </select>
-            </label>
-            <label className="wide">
-              Disability / health needs
-              <input
-                value={d.disability_or_health_need || ''}
-                onChange={(e) => update(i, 'disability_or_health_need', e.target.value)}
-              />
-            </label>
+            <Input label="Skill" k="skill" v={d} set={(key, val) => update(i, key, val)} />
+            <Select
+              label="Namaz" k="namaz" v={d} set={(key, val) => update(i, key, val)}
+              options={['Regular 5 times', 'Often', 'Occasionally', 'Not currently']}
+            />
+            <Input
+              label="Disability / health needs" k="disability_or_health_need" v={d} set={(key, val) => update(i, key, val)}
+              wide
+            />
           </Grid>
         </div>
       ))}
 
-      <button className="btn secondary" onClick={add}>+ Add family member</button>
+      <button type="button" className="btn secondary" onClick={add}>+ Add family member</button>
     </Section>
   );
 }
