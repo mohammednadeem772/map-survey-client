@@ -351,8 +351,13 @@ function Input({ label, k, v, set, type = 'text', wide = false, required = false
   const invalid = required && showError && isEmptyValue(v[k]);
   return (
     <label className={wide ? 'wide' : ''}>
-      {label}
-      {required && <span className="text-rose-500"> *</span>}
+      {/* Label text + asterisk must stay in one element: `label` is
+          display:grid, so any direct child (including a bare conditional
+          <span>) becomes its own grid row and wraps onto a new line. */}
+      <span>
+        {label}
+        {required && <span className="text-rose-500"> *</span>}
+      </span>
       <input
         type={type}
         value={v[k] ?? ''}

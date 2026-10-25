@@ -37,6 +37,16 @@
     @apply mt-0 h-4 w-4 rounded border-slate-300 text-teal-700 shadow-none focus:outline-teal-600/40;
     width: auto;
   }
+  /* Hide the native up/down spinner on number inputs (Age, Latitude, income
+     fields, ...) — it clashes with the rest of the custom-styled form. */
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
   table {
     @apply w-full border-collapse text-sm;
   }
