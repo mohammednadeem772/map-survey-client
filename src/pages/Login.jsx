@@ -6,7 +6,7 @@ import { useAuth } from '../App';
 import { useNavigate, Link } from 'react-router-dom';
 
 export default function Login() {
-  const [form, setForm] = useState({ email: 'admin@map.local', password: 'Admin@123' });
+  const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const { setUser } = useAuth();
   const navigate = useNavigate();
@@ -53,7 +53,6 @@ export default function Login() {
         </label>
 
         <button className="btn">Sign in</button>
-        <small>Demo admin: admin@map.local / Admin@123</small>
       </form>
     </div>
   );
