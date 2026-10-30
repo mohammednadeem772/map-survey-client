@@ -384,7 +384,7 @@ export default function SurveyForm() {
   );
 
   return (
-    <>
+    <div className="survey-page">
       <div className="page-head">
         <div>
           <h1>{id ? 'Update' : 'New'} household survey</h1>
@@ -392,10 +392,10 @@ export default function SurveyForm() {
         </div>
       </div>
 
-      {/* Frozen while the (often long) form scrolls below it, so the step
-          you're on and the Back/Save/Continue actions never need a scroll
-          back up to reach. `top-16` lines it up right under the app's own
-          sticky header (.top, h-16). */}
+      {/* Fixed above the form card (not sticky — the page itself no longer
+          scrolls; .survey-form-card below is the thing that scrolls, see
+          .survey-page), so the step you're on and the Back/Save/Continue
+          actions are always visible without needing to scroll for them. */}
       <div className="survey-toolbar">
         <div className="steps">
           {steps.map((label, i) => {
@@ -427,7 +427,7 @@ export default function SurveyForm() {
         <div className="toolbar-actions">{actionButtons}</div>
       </div>
 
-      <form className="card form" onSubmit={(e) => e.preventDefault()}>
+      <form className="card form survey-form-card" onSubmit={(e) => e.preventDefault()}>
         {step === 0 && (
           <>
             {showStep0Errors && !step0Complete && (
@@ -600,7 +600,7 @@ export default function SurveyForm() {
 
         <div className="form-actions">{actionButtons}</div>
       </form>
-    </>
+    </div>
   );
 }
 
