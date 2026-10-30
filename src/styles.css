@@ -284,6 +284,9 @@
   .steps button.active {
     @apply border-teal-700 bg-teal-700 text-white shadow-md shadow-teal-900/20 hover:border-teal-700 hover:text-white;
   }
+  .steps button.disabled {
+    @apply cursor-not-allowed opacity-40 hover:border-slate-200 hover:text-slate-400;
+  }
   .steps span {
     @apply text-xs font-medium normal-case opacity-80;
   }

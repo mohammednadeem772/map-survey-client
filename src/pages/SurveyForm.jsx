@@ -62,6 +62,24 @@ function getMissingStep0Fields(f) {
   return missing;
 }
 
+// The Spouse step only makes sense when the head of family is married —
+// for Unmarried/Widowed/Separated-Divorced there's no spouse to record, so
+// the whole step is disabled rather than asking for fields that don't apply.
+function isSpouseApplicable(f) {
+  return f.head_marital_status === 'Married';
+}
+
+const REQUIRED_SPOUSE_FIELDS = [
+  ['spouse_name', 'Spouse — Name'],
+  ['spouse_age', 'Spouse — Age'],
+  ['spouse_gender', 'Spouse — Gender'],
+];
+
+function getMissingSpouseFields(f) {
+  if (!isSpouseApplicable(f)) return [];
+  return REQUIRED_SPOUSE_FIELDS.filter(([key]) => isEmptyValue(f[key])).map(([, label]) => label);
+}
+
 // ── Field "kinds" ────────────────────────────────────────────────────────
 // Every numeric/phone field in this form shares the same bug class: a plain
 // <input type="number"> has no max length (so "age" can run on forever) and
@@ -169,9 +187,14 @@ export default function SurveyForm() {
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [showStep0Errors, setShowStep0Errors] = useState(false);
+  const [showSpouseErrors, setShowSpouseErrors] = useState(false);
 
   const missingStep0Fields = getMissingStep0Fields(form);
   const step0Complete = missingStep0Fields.length === 0;
+
+  const spouseApplicable = isSpouseApplicable(form);
+  const missingSpouseFields = getMissingSpouseFields(form);
+  const spouseComplete = missingSpouseFields.length === 0;
 
   useEffect(() => {
     api.get('/areas').then((res) => {
@@ -206,16 +229,30 @@ export default function SurveyForm() {
     set(key, form[key]?.includes(value) ? form[key].filter((x) => x !== value) : [...(form[key] || []), value]);
 
   // Moving past step 0 (and jumping to any later step via the tabs) is
-  // blocked until its required fields are filled in. Going backwards is
-  // always allowed — there's nothing to validate when reviewing earlier steps.
+  // blocked until its required fields are filled in. Step 1 (Spouse) is
+  // skipped entirely when it isn't applicable, and — when it is — blocks
+  // moving further until its own required fields are filled in, the same
+  // way step 0 does. Going backwards is always allowed except landing on
+  // the disabled Spouse step itself.
   function goToStep(target) {
+    if (target === 1 && !spouseApplicable) return;
     if (target > 0 && !step0Complete) {
       setStep(0);
       setShowStep0Errors(true);
       return;
     }
+    if (target > 1 && spouseApplicable && !spouseComplete) {
+      setStep(1);
+      setShowSpouseErrors(true);
+      return;
+    }
     setStep(target);
   }
+
+  // step+1 and step-1 but skipping over the Spouse step when it's disabled,
+  // for the Continue/Back buttons (the step tabs go through goToStep directly).
+  const stepForward = (from) => (from + 1 === 1 && !spouseApplicable ? from + 2 : from + 1);
+  const stepBackward = (from) => (from - 1 === 1 && !spouseApplicable ? from - 2 : from - 1);
 
   // Save draft intentionally bypasses the required-field gate above — a
   // surveyor should always be able to save in-progress work from any step.
@@ -230,6 +267,11 @@ export default function SurveyForm() {
     if (status === 'SUBMITTED' && !step0Complete) {
       setStep(0);
       setShowStep0Errors(true);
+      return;
+    }
+    if (status === 'SUBMITTED' && spouseApplicable && !spouseComplete) {
+      setStep(1);
+      setShowSpouseErrors(true);
       return;
     }
     setSaving(true);
@@ -263,12 +305,22 @@ export default function SurveyForm() {
       </div>
 
       <div className="steps">
-        {steps.map((label, i) => (
-          <button type="button" className={i === step ? 'active' : ''} onClick={() => goToStep(i)} key={label}>
-            {i + 1}
-            <span>{label}</span>
-          </button>
-        ))}
+        {steps.map((label, i) => {
+          const disabled = i === 1 && !spouseApplicable;
+          return (
+            <button
+              type="button"
+              className={`${i === step ? 'active' : ''} ${disabled ? 'disabled' : ''}`}
+              disabled={disabled}
+              title={disabled ? 'Not applicable — household head is not married' : undefined}
+              onClick={() => goToStep(i)}
+              key={label}
+            >
+              {i + 1}
+              <span>{label}</span>
+            </button>
+          );
+        })}
       </div>
 
       <form className="card form" onSubmit={(e) => e.preventDefault()}>
@@ -310,7 +362,27 @@ export default function SurveyForm() {
           </>
         )}
 
-        {step === 1 && <Person prefix="spouse" title="Spouse details" f={form} set={set} />}
+        {step === 1 && (spouseApplicable ? (
+          <>
+            {showSpouseErrors && !spouseComplete && (
+              <div className="notice mb-6">
+                Please complete before continuing: {missingSpouseFields.join(', ')}.
+              </div>
+            )}
+            <Person
+              prefix="spouse"
+              title="Spouse details"
+              f={form}
+              set={set}
+              requiredFields={['name', 'age', 'gender']}
+              showError={showSpouseErrors}
+            />
+          </>
+        ) : (
+          <Section title="Spouse details">
+            <p>Not applicable — the household head's marital status is {form.head_marital_status || 'not set'}.</p>
+          </Section>
+        ))}
 
         {step === 2 && (
           <>
@@ -441,14 +513,14 @@ export default function SurveyForm() {
         {step === 5 && <Review f={form} />}
 
         <div className="form-actions">
-          <button type="button" className="btn secondary" disabled={step === 0} onClick={() => setStep(step - 1)}>
+          <button type="button" className="btn secondary" disabled={step === 0} onClick={() => setStep(stepBackward(step))}>
             Back
           </button>
           <button type="button" className="btn secondary" disabled={saving} onClick={() => save('DRAFT')}>
             Save draft
           </button>
           {step < 5 ? (
-            <button type="button" className="btn" onClick={() => goToStep(step + 1)}>Continue</button>
+            <button type="button" className="btn" onClick={() => goToStep(stepForward(step))}>Continue</button>
           ) : (
             <button type="button" className="btn" disabled={saving} onClick={() => save('SUBMITTED')}>Submit survey</button>
           )}
