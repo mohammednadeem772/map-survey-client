@@ -715,16 +715,14 @@ function Select({ label, k, v, set, options, required = false, showError = false
       </button>
       {open && (
         <div className="combo-panel">
-          {normalized.length > 6 && (
-            <input
-              autoFocus
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search..."
-              className="combo-search"
-            />
-          )}
+          <input
+            autoFocus
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search..."
+            className="combo-search"
+          />
           <div className="combo-list">
             <button type="button" onClick={() => choose('')} className="combo-option">Select</button>
             {filtered.map((o) => (
