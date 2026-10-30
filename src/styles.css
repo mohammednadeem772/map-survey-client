@@ -70,8 +70,13 @@
   .brand {
     @apply flex items-center gap-2 text-lg font-extrabold tracking-tight text-slate-900;
   }
-  .brand-logo {
-    @apply h-9 w-9 object-contain;
+  /* The MAP wordmark (client/src/assets/map-wordmark.png) is a wide lockup
+     (name + tagline + "Zakat Centre India Initiative"), not a square icon —
+     sized by height so it stays legible, width follows its own aspect
+     ratio. Used identically in both the public landing header and the
+     signed-in app header so the brand reads the same in both places. */
+  .brand-wordmark {
+    @apply h-10 w-auto object-contain sm:h-12;
   }
   .top nav {
     @apply flex items-center gap-1 sm:gap-2;

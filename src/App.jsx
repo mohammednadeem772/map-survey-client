@@ -10,7 +10,7 @@ import Dashboard from './pages/Dashboard';
 import Surveys from './pages/Surveys';
 import Admin from './pages/Admin';
 import DropdownOptions from './pages/DropdownOptions';
-import logo from './assets/logo.png';
+import wordmark from './assets/map-wordmark.png';
 
 export const Auth = createContext(null);
 export const useAuth = () => useContext(Auth);
@@ -22,8 +22,7 @@ function Shell({ children }) {
     <>
       <header className="top">
         <Link to="/dashboard" className="brand">
-          <img src={logo} alt="MAP Survey logo" className="brand-logo" />
-          MAP Survey
+          <img src={wordmark} alt="Mohalla Adoption Program — Zakat Centre India Initiative" className="brand-wordmark" />
         </Link>
         <nav>
           <Link to="/dashboard">Dashboard</Link>

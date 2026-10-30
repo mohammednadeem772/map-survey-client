@@ -1,16 +1,13 @@
 // Public marketing/intro page — no auth required.
 import React from 'react';
 import { Link } from 'react-router-dom';
-import logo from '../assets/logo.png';
+import wordmark from '../assets/map-wordmark.png';
 
 export default function Landing() {
   return (
     <div className="landing">
       <header>
-        <div className="brand">
-          <img src={logo} alt="Mohalla Adoption Program logo" className="brand-logo" />
-          <strong>Mohalla Adoption Program</strong>
-        </div>
+        <img src={wordmark} alt="Mohalla Adoption Program — Zakat Centre India Initiative" className="brand-wordmark" />
         <Link className="btn secondary" to="/login">Team login</Link>
       </header>
 
