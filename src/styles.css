@@ -387,20 +387,47 @@
   .survey-toolbar {
     @apply sticky top-16 z-[9] mb-5 border-b border-slate-200/80 bg-white/95 pt-3 shadow-sm backdrop-blur-sm;
   }
+  /* Stepper: label above a numbered circle, connected by a horizontal line
+     — the circle fills solid once its step is current/done, with a
+     checkmark once it's behind you. The label has a fixed height (h-8) so
+     every circle sits at the same vertical position regardless of label
+     line count, which .step-connector's margin-top relies on to land
+     exactly on the circles' center. */
   .steps {
-    @apply flex gap-2 overflow-x-auto pb-3;
+    @apply flex items-start overflow-x-auto pb-3;
   }
-  .steps button {
-    @apply flex min-w-[130px] shrink-0 flex-col items-start gap-0.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-bold text-slate-400 shadow-sm transition hover:border-teal-300 hover:text-teal-700;
+  .step-node {
+    @apply flex shrink-0 flex-col items-center gap-1.5 border-0 bg-transparent px-1 text-center;
   }
-  .steps button.active {
-    @apply border-teal-700 bg-teal-700 text-white shadow-md shadow-teal-900/20 hover:border-teal-700 hover:text-white;
+  .step-label {
+    @apply flex h-8 w-20 items-center justify-center text-[11px] font-semibold leading-tight text-slate-400 transition sm:w-24 sm:text-xs;
   }
-  .steps button.disabled {
-    @apply cursor-not-allowed opacity-40 hover:border-slate-200 hover:text-slate-400;
+  .step-circle {
+    @apply flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-slate-300 bg-white text-xs font-bold text-slate-400 shadow-sm transition sm:h-9 sm:w-9 sm:text-sm;
   }
-  .steps span {
-    @apply text-xs font-medium normal-case opacity-80;
+  .step-node:not(.step-node-disabled):hover .step-circle {
+    @apply border-teal-400 text-teal-700;
+  }
+  .step-node-active .step-circle {
+    @apply border-teal-700 bg-teal-700 text-white shadow-md shadow-teal-900/20;
+  }
+  .step-node-active .step-label {
+    @apply font-bold text-slate-900;
+  }
+  .step-node-done .step-circle {
+    @apply border-teal-700 bg-teal-700 text-white;
+  }
+  .step-node-done .step-label {
+    @apply text-slate-600;
+  }
+  .step-node-disabled {
+    @apply cursor-not-allowed opacity-40;
+  }
+  .step-connector {
+    @apply mt-[calc(2rem+0.375rem+1rem)] h-0.5 min-w-[16px] flex-1 bg-slate-200 transition sm:mt-[calc(2rem+0.375rem+1.125rem)] sm:min-w-[24px];
+  }
+  .step-connector-done {
+    @apply bg-teal-700;
   }
   .toolbar-actions {
     @apply flex flex-wrap justify-end gap-2 border-t border-slate-100 py-3;

@@ -2,7 +2,7 @@
 // "edit" (/survey/:id). Mirrors the field set the server accepts; see
 // server/src/routes/surveys.routes.js `WRITABLE_FIELDS` for the source of truth.
 import React, { useEffect, useRef, useState } from 'react';
-import { MapPin } from 'lucide-react';
+import { MapPin, Check } from 'lucide-react';
 import { api } from '../api';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useToast, apiErrorMessage } from '../lib/toast';
@@ -375,18 +375,27 @@ export default function SurveyForm() {
         <div className="steps">
           {steps.map((label, i) => {
             const disabled = i === 1 && !spouseApplicable;
+            const completed = i < step;
+            const active = i === step;
             return (
-              <button
-                type="button"
-                className={`${i === step ? 'active' : ''} ${disabled ? 'disabled' : ''}`}
-                disabled={disabled}
-                title={disabled ? 'Not applicable — household head is not married' : undefined}
-                onClick={() => goToStep(i)}
-                key={label}
-              >
-                {i + 1}
-                <span>{label}</span>
-              </button>
+              <React.Fragment key={label}>
+                {i > 0 && <span className={`step-connector ${i <= step ? 'step-connector-done' : ''}`} />}
+                <button
+                  type="button"
+                  className={[
+                    'step-node',
+                    active && 'step-node-active',
+                    completed && 'step-node-done',
+                    disabled && 'step-node-disabled',
+                  ].filter(Boolean).join(' ')}
+                  disabled={disabled}
+                  title={disabled ? 'Not applicable — household head is not married' : undefined}
+                  onClick={() => goToStep(i)}
+                >
+                  <span className="step-label">{label}</span>
+                  <span className="step-circle">{completed ? <Check size={16} aria-hidden="true" /> : i + 1}</span>
+                </button>
+              </React.Fragment>
             );
           })}
         </div>
