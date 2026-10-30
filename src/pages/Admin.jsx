@@ -2,43 +2,14 @@
 // Route-guarded to ADMIN in App.jsx; the API independently enforces the same
 // restriction on every /areas and /users write.
 import React, { useEffect, useState } from 'react';
-import { UserX, UserCheck, X, RotateCcw } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { UserX, UserCheck, ListTree } from 'lucide-react';
 import { api } from '../api';
 import { useAuth } from '../App';
 import IconButton from '../components/IconButton';
 
 const emptyUser = { name: '', email: '', password: '', role: 'SURVEYOR', area_id: '' };
 const emptyArea = { name: '', ward_code: '', target_households: 0 };
-
-// Every survey-form dropdown an admin can manage here — keys must match
-// server/src/lib/dropdownCategories.js exactly; the label is just this
-// screen's display text. member_type isn't here on purpose: it's a fixed
-// enum the survey form's own logic depends on (STUDENT/WORKING show
-// different fields), not an admin-editable list.
-const DROPDOWN_CATEGORY_LABELS = {
-  gender: 'Gender',
-  marital_status: 'Marital status',
-  education: 'Education',
-  occupation: 'Occupation',
-  namaz: 'Namaz',
-  house_tenure: 'House tenure',
-  house_condition: 'House condition',
-  toilet_access: 'Toilet access',
-  drinking_water: 'Drinking water',
-  electricity_access: 'Electricity access',
-  loan_type: 'Loan type',
-  aadhaar_status: 'Aadhaar status',
-  voter_id_status: 'Voter ID status',
-  vehicle: 'Vehicle',
-  tv_connection: 'TV connection',
-  tv_type: 'TV type',
-  smartphone_access: 'Smartphone access',
-  internet_access: 'Internet access',
-  food_security: 'Food security',
-  vulnerable_category: 'Vulnerability flag',
-  dependant_relationship: 'Family member relationship',
-};
-const DROPDOWN_CATEGORY_KEYS = Object.keys(DROPDOWN_CATEGORY_LABELS);
 
 // Same bug class as the survey form's numeric fields (see SurveyForm.jsx):
 // a plain <input type="number"> has no max length, so "target households"
@@ -56,20 +27,12 @@ export default function Admin() {
   const [userForm, setUserForm] = useState(emptyUser);
   const [areaForm, setAreaForm] = useState(emptyArea);
   const [busyId, setBusyId] = useState(null);
-  const [dropdownOptions, setDropdownOptions] = useState({});
-  const [dropdownCategory, setDropdownCategory] = useState(DROPDOWN_CATEGORY_KEYS[0]);
-  const [newOptionValue, setNewOptionValue] = useState('');
-  const [optionError, setOptionError] = useState('');
-  const [optionBusyId, setOptionBusyId] = useState(null);
 
   const load = () =>
-    Promise.all([api.get('/users'), api.get('/areas'), api.get('/dropdown-options?includeInactive=true')]).then(
-      ([u, a, o]) => {
-        setUsers(u.data);
-        setAreas(a.data);
-        setDropdownOptions(o.data);
-      }
-    );
+    Promise.all([api.get('/users'), api.get('/areas')]).then(([u, a]) => {
+      setUsers(u.data);
+      setAreas(a.data);
+    });
 
   useEffect(() => {
     load();
@@ -100,29 +63,6 @@ export default function Admin() {
       await load();
     } finally {
       setBusyId(null);
-    }
-  }
-
-  async function addDropdownOption(e) {
-    e.preventDefault();
-    setOptionError('');
-    try {
-      await api.post('/dropdown-options', { category: dropdownCategory, value: newOptionValue.slice(0, 150) });
-      setNewOptionValue('');
-      await load();
-    } catch (err) {
-      setOptionError(err.response?.data?.message || 'Could not add that value.');
-    }
-  }
-
-  async function toggleDropdownOption(o) {
-    setOptionBusyId(o.id);
-    try {
-      if (o.active) await api.delete(`/dropdown-options/${o.id}`);
-      else await api.put(`/dropdown-options/${o.id}/reactivate`);
-      await load();
-    } finally {
-      setOptionBusyId(null);
     }
   }
 
@@ -227,47 +167,13 @@ export default function Admin() {
         </form>
       </div>
 
-      <section className="card">
-        <h2>Survey dropdown options</h2>
-        <p>Add a value the field team should be able to pick from; deactivate one they shouldn't see anymore. Deactivating never changes surveys that already recorded that value.</p>
-
-        <label>
-          Field
-          <select value={dropdownCategory} onChange={(e) => { setDropdownCategory(e.target.value); setOptionError(''); }}>
-            {DROPDOWN_CATEGORY_KEYS.map((key) => (
-              <option key={key} value={key}>{DROPDOWN_CATEGORY_LABELS[key]}</option>
-            ))}
-          </select>
-        </label>
-
-        <form className="option-add-row" onSubmit={addDropdownOption}>
-          <input
-            value={newOptionValue}
-            onChange={(e) => setNewOptionValue(e.target.value.slice(0, 150))}
-            maxLength={150}
-            placeholder={`Add a new ${DROPDOWN_CATEGORY_LABELS[dropdownCategory].toLowerCase()} value`}
-            required
-          />
-          <button className="btn">Add</button>
-        </form>
-        {optionError && <div className="notice">{optionError}</div>}
-
-        <div className="option-chips">
-          {(dropdownOptions[dropdownCategory] || []).map((o) => (
-            <span key={o.id} className={`option-chip ${o.active ? '' : 'option-chip-inactive'}`}>
-              {o.value}
-              <IconButton
-                icon={o.active ? X : RotateCcw}
-                label={o.active ? 'Deactivate' : 'Reactivate'}
-                variant={o.active ? 'danger' : 'success'}
-                disabled={optionBusyId === o.id}
-                onClick={() => toggleDropdownOption(o)}
-              />
-            </span>
-          ))}
-          {(dropdownOptions[dropdownCategory] || []).length === 0 && <p>No values yet.</p>}
+      <Link to="/admin/dropdown-options" className="card admin-link-card">
+        <div>
+          <h2>Survey dropdown options</h2>
+          <p>Manage the value lists behind every dropdown in the survey form — gender, occupation, house condition, and more.</p>
         </div>
-      </section>
+        <ListTree className="admin-link-card-icon" aria-hidden="true" />
+      </Link>
 
       <section className="card">
         <h2>Users</h2>

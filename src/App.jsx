@@ -9,6 +9,7 @@ import SurveyForm from './pages/SurveyForm';
 import Dashboard from './pages/Dashboard';
 import Surveys from './pages/Surveys';
 import Admin from './pages/Admin';
+import DropdownOptions from './pages/DropdownOptions';
 import logo from './assets/logo.png';
 
 export const Auth = createContext(null);
@@ -64,6 +65,7 @@ export default function App() {
         <Route path="/survey/new" element={<Protected><SurveyForm /></Protected>} />
         <Route path="/survey/:id" element={<Protected><SurveyForm /></Protected>} />
         <Route path="/admin" element={<Protected roles={['ADMIN']}><Admin /></Protected>} />
+        <Route path="/admin/dropdown-options" element={<Protected roles={['ADMIN']}><DropdownOptions /></Protected>} />
       </Routes>
     </Auth.Provider>
   );

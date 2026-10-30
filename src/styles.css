@@ -236,6 +236,18 @@
   .admin-grid h2 {
     @apply text-lg font-bold text-slate-900;
   }
+  .admin-link-card {
+    @apply mb-6 flex items-center justify-between gap-4 transition hover:border-teal-300 hover:shadow-md;
+  }
+  .admin-link-card h2 {
+    @apply text-lg font-bold text-slate-900;
+  }
+  .admin-link-card p {
+    @apply mt-1 text-sm text-slate-500;
+  }
+  .admin-link-card-icon {
+    @apply h-8 w-8 shrink-0 text-teal-700;
+  }
   .option-add-row {
     @apply mt-3 flex gap-2;
   }
