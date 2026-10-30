@@ -5,6 +5,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { MapPin } from 'lucide-react';
 import { api } from '../api';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useToast, apiErrorMessage } from '../lib/toast';
+import Spinner from '../components/Spinner';
 
 // Dropdown option lists (occupation, education, gender, house condition,
 // etc.) are no longer hardcoded here — they're fetched from
@@ -181,6 +183,7 @@ function normalizeForSubmit(key, value) {
 export default function SurveyForm() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
   const [form, setForm] = useState(emptySurvey);
   const [areas, setAreas] = useState([]);
   const [dropdownOptions, setDropdownOptions] = useState({});
@@ -273,7 +276,7 @@ export default function SurveyForm() {
   // goToStep already makes it unreachable otherwise.
   async function save(status) {
     if (!form.consent_given) {
-      return alert('Consent is required before saving this survey.');
+      return toast.error('Consent is required before saving this survey.');
     }
     if (status === 'SUBMITTED' && !step0Complete) {
       setStep(0);
@@ -298,7 +301,10 @@ export default function SurveyForm() {
       }
       if (id) await api.put(`/surveys/${id}`, payload);
       else await api.post('/surveys', payload);
+      toast.success(status === 'SUBMITTED' ? 'Survey submitted.' : 'Draft saved.');
       navigate('/dashboard');
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Could not save this survey. Please try again.'));
     } finally {
       setSaving(false);
     }
@@ -316,12 +322,14 @@ export default function SurveyForm() {
         Back
       </button>
       <button type="button" className="btn secondary" disabled={saving} onClick={() => save('DRAFT')}>
-        Save draft
+        {saving && <Spinner />} Save draft
       </button>
       {step < 5 ? (
         <button type="button" className="btn" onClick={() => goToStep(stepForward(step))}>Continue</button>
       ) : (
-        <button type="button" className="btn" disabled={saving} onClick={() => save('SUBMITTED')}>Submit survey</button>
+        <button type="button" className="btn" disabled={saving} onClick={() => save('SUBMITTED')}>
+          {saving && <Spinner />} Submit survey
+        </button>
       )}
     </>
   );

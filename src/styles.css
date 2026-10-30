@@ -451,4 +451,32 @@
   .review p b {
     @apply text-slate-900;
   }
+
+  /* Toast notifications (see src/lib/toast.jsx) */
+  .toast-stack {
+    @apply fixed bottom-4 right-4 z-50 flex w-[calc(100%-2rem)] max-w-sm flex-col gap-2;
+  }
+  .toast {
+    @apply flex items-center gap-2 rounded-lg border px-4 py-3 text-sm font-medium shadow-lg;
+  }
+  .toast-success {
+    @apply border-teal-200 bg-teal-50 text-teal-800;
+  }
+  .toast-error {
+    @apply border-rose-200 bg-rose-50 text-rose-800;
+  }
+  .toast-close {
+    @apply ml-auto text-lg leading-none text-current opacity-60 hover:opacity-100;
+  }
+
+  /* Inline button spinner (see src/components/Spinner.jsx) */
+  .spinner {
+    animation: spin 0.7s linear infinite;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }

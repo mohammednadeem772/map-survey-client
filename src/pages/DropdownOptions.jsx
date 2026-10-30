@@ -5,7 +5,9 @@
 import React, { useEffect, useState } from 'react';
 import { X, RotateCcw } from 'lucide-react';
 import { api } from '../api';
+import { useToast, apiErrorMessage } from '../lib/toast';
 import IconButton from '../components/IconButton';
+import Spinner from '../components/Spinner';
 
 // Keys must match server/src/lib/dropdownCategories.js exactly; the label
 // is just this screen's display text. member_type isn't here on purpose:
@@ -37,10 +39,12 @@ const DROPDOWN_CATEGORY_LABELS = {
 const DROPDOWN_CATEGORY_KEYS = Object.keys(DROPDOWN_CATEGORY_LABELS);
 
 export default function DropdownOptions() {
+  const toast = useToast();
   const [options, setOptions] = useState({});
   const [category, setCategory] = useState(DROPDOWN_CATEGORY_KEYS[0]);
   const [newValue, setNewValue] = useState('');
   const [error, setError] = useState('');
+  const [adding, setAdding] = useState(false);
   const [busyId, setBusyId] = useState(null);
 
   const load = () => api.get('/dropdown-options?includeInactive=true').then((res) => setOptions(res.data));
@@ -52,12 +56,16 @@ export default function DropdownOptions() {
   async function addOption(e) {
     e.preventDefault();
     setError('');
+    setAdding(true);
     try {
       await api.post('/dropdown-options', { category, value: newValue.slice(0, 150) });
       setNewValue('');
       await load();
+      toast.success('Value added.');
     } catch (err) {
-      setError(err.response?.data?.message || 'Could not add that value.');
+      setError(apiErrorMessage(err, 'Could not add that value.'));
+    } finally {
+      setAdding(false);
     }
   }
 
@@ -67,6 +75,9 @@ export default function DropdownOptions() {
       if (o.active) await api.delete(`/dropdown-options/${o.id}`);
       else await api.put(`/dropdown-options/${o.id}/reactivate`);
       await load();
+      toast.success(o.active ? 'Value deactivated.' : 'Value reactivated.');
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Could not update that value.'));
     } finally {
       setBusyId(null);
     }
@@ -99,7 +110,7 @@ export default function DropdownOptions() {
             placeholder={`Add a new ${DROPDOWN_CATEGORY_LABELS[category].toLowerCase()} value`}
             required
           />
-          <button className="btn">Add</button>
+          <button className="btn" disabled={adding}>{adding && <Spinner />} Add</button>
         </form>
         {error && <div className="notice">{error}</div>}
 
@@ -111,7 +122,7 @@ export default function DropdownOptions() {
                 icon={o.active ? X : RotateCcw}
                 label={o.active ? 'Deactivate' : 'Reactivate'}
                 variant={o.active ? 'danger' : 'success'}
-                disabled={busyId === o.id}
+                loading={busyId === o.id}
                 onClick={() => toggleOption(o)}
               />
             </span>

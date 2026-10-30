@@ -3,8 +3,9 @@
 // this shows just the icon with a native tooltip (title/aria-label) and a
 // hover background/color effect instead.
 import React from 'react';
+import Spinner from './Spinner';
 
-export default function IconButton({ icon: Icon, label, onClick, href, variant = 'default', disabled = false }) {
+export default function IconButton({ icon: Icon, label, onClick, href, variant = 'default', disabled = false, loading = false }) {
   const className = `icon-btn icon-btn-${variant}`;
 
   if (href) {
@@ -16,8 +17,8 @@ export default function IconButton({ icon: Icon, label, onClick, href, variant =
   }
 
   return (
-    <button type="button" title={label} aria-label={label} className={className} onClick={onClick} disabled={disabled}>
-      <Icon className="icon-btn-svg" aria-hidden="true" />
+    <button type="button" title={label} aria-label={label} className={className} onClick={onClick} disabled={disabled || loading}>
+      {loading ? <Spinner size={16} /> : <Icon className="icon-btn-svg" aria-hidden="true" />}
     </button>
   );
 }

@@ -6,7 +6,9 @@ import { Link } from 'react-router-dom';
 import { UserX, UserCheck, ListTree } from 'lucide-react';
 import { api } from '../api';
 import { useAuth } from '../App';
+import { useToast, apiErrorMessage } from '../lib/toast';
 import IconButton from '../components/IconButton';
+import Spinner from '../components/Spinner';
 
 const emptyUser = { name: '', email: '', password: '', role: 'SURVEYOR', area_id: '' };
 const emptyArea = { name: '', ward_code: '', target_households: 0 };
@@ -22,11 +24,14 @@ function sanitizeDigits(raw, { maxLength, max }) {
 
 export default function Admin() {
   const { user: currentUser } = useAuth();
+  const toast = useToast();
   const [users, setUsers] = useState([]);
   const [areas, setAreas] = useState([]);
   const [userForm, setUserForm] = useState(emptyUser);
   const [areaForm, setAreaForm] = useState(emptyArea);
   const [busyId, setBusyId] = useState(null);
+  const [savingUser, setSavingUser] = useState(false);
+  const [savingArea, setSavingArea] = useState(false);
 
   const load = () =>
     Promise.all([api.get('/users'), api.get('/areas')]).then(([u, a]) => {
@@ -40,17 +45,33 @@ export default function Admin() {
 
   async function addUser(e) {
     e.preventDefault();
-    await api.post('/users', userForm);
-    setUserForm(emptyUser);
-    load();
+    setSavingUser(true);
+    try {
+      await api.post('/users', userForm);
+      setUserForm(emptyUser);
+      await load();
+      toast.success('User created.');
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Could not create that user.'));
+    } finally {
+      setSavingUser(false);
+    }
   }
 
   async function addArea(e) {
     e.preventDefault();
-    const target_households = areaForm.target_households === '' ? 0 : Number(areaForm.target_households);
-    await api.post('/areas', { ...areaForm, target_households });
-    setAreaForm(emptyArea);
-    load();
+    setSavingArea(true);
+    try {
+      const target_households = areaForm.target_households === '' ? 0 : Number(areaForm.target_households);
+      await api.post('/areas', { ...areaForm, target_households });
+      setAreaForm(emptyArea);
+      await load();
+      toast.success('Area created.');
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Could not create that area.'));
+    } finally {
+      setSavingArea(false);
+    }
   }
 
   async function toggleActive(u) {
@@ -61,6 +82,9 @@ export default function Admin() {
       if (u.active) await api.delete(`/users/${u.id}`);
       else await api.put(`/users/${u.id}/reactivate`);
       await load();
+      toast.success(u.active ? 'User deactivated.' : 'User activated.');
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Could not update that user.'));
     } finally {
       setBusyId(null);
     }
@@ -108,7 +132,7 @@ export default function Admin() {
               }
             />
           </label>
-          <button className="btn">Create area</button>
+          <button className="btn" disabled={savingArea}>{savingArea && <Spinner />} Create area</button>
         </form>
 
         <form className="card" onSubmit={addUser}>
@@ -163,7 +187,7 @@ export default function Admin() {
               ))}
             </select>
           </label>
-          <button className="btn">Create user</button>
+          <button className="btn" disabled={savingUser}>{savingUser && <Spinner />} Create user</button>
         </form>
       </div>
 
@@ -206,7 +230,7 @@ export default function Admin() {
                           icon={UserX}
                           label="Deactivate"
                           variant="danger"
-                          disabled={busyId === u.id}
+                          loading={busyId === u.id}
                           onClick={() => toggleActive(u)}
                         />
                       ) : (
@@ -214,7 +238,7 @@ export default function Admin() {
                           icon={UserCheck}
                           label="Activate"
                           variant="success"
-                          disabled={busyId === u.id}
+                          loading={busyId === u.id}
                           onClick={() => toggleActive(u)}
                         />
                       )}

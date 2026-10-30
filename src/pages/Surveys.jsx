@@ -7,6 +7,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { SquarePen, CircleCheck, Trash2 } from 'lucide-react';
 import { api } from '../api';
 import { useAuth } from '../App';
+import { useToast, apiErrorMessage } from '../lib/toast';
 import StatusPill from '../components/StatusPill';
 import IconButton from '../components/IconButton';
 
@@ -14,6 +15,7 @@ const STATUSES = ['DRAFT', 'SUBMITTED', 'VERIFIED', 'RETURNED'];
 
 export default function Surveys() {
   const { user } = useAuth();
+  const toast = useToast();
   const [surveys, setSurveys] = useState([]);
   const [areas, setAreas] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -55,6 +57,9 @@ export default function Surveys() {
     try {
       await api.put(`/surveys/${id}`, { status: 'VERIFIED' });
       await load();
+      toast.success('Survey verified.');
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Could not verify this survey.'));
     } finally {
       setBusyId(null);
     }
@@ -66,6 +71,9 @@ export default function Surveys() {
     try {
       await api.delete(`/surveys/${s.id}`);
       await load();
+      toast.success('Survey deleted.');
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Could not delete this survey.'));
     } finally {
       setBusyId(null);
     }
@@ -146,7 +154,7 @@ export default function Surveys() {
                           icon={CircleCheck}
                           label="Verify"
                           variant="success"
-                          disabled={busyId === s.id}
+                          loading={busyId === s.id}
                           onClick={() => verify(s.id)}
                         />
                       )}
@@ -155,7 +163,7 @@ export default function Surveys() {
                           icon={Trash2}
                           label="Delete"
                           variant="danger"
-                          disabled={busyId === s.id}
+                          loading={busyId === s.id}
                           onClick={() => remove(s)}
                         />
                       )}

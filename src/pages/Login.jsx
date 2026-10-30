@@ -4,15 +4,20 @@ import React, { useState } from 'react';
 import { api } from '../api';
 import { useAuth } from '../App';
 import { useNavigate, Link } from 'react-router-dom';
+import { apiErrorMessage } from '../lib/toast';
+import Spinner from '../components/Spinner';
 
 export default function Login() {
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const { setUser } = useAuth();
   const navigate = useNavigate();
 
   async function submit(e) {
     e.preventDefault();
+    setError('');
+    setSubmitting(true);
     try {
       const { data } = await api.post('/auth/login', form);
       localStorage.setItem('map_token', data.token);
@@ -20,7 +25,8 @@ export default function Login() {
       setUser(data.user);
       navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed');
+      setError(apiErrorMessage(err, 'Login failed'));
+      setSubmitting(false);
     }
   }
 
@@ -52,7 +58,7 @@ export default function Login() {
           />
         </label>
 
-        <button className="btn">Sign in</button>
+        <button className="btn" disabled={submitting}>{submitting && <Spinner />} Sign in</button>
       </form>
     </div>
   );
