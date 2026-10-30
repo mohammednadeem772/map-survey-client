@@ -14,6 +14,13 @@ const occupations = [
   'Clerk', 'Medical staff', 'Engineer', 'Unemployed', 'Retired', 'Other',
 ];
 
+// Shared by the head/spouse Person fields and the dependants' Education
+// field, so every household member picks from the same fixed list.
+const educationOptions = [
+  'No formal education', 'Primary', 'Middle school', '10th', '12th', 'ITI/Diploma',
+  'Graduate', 'Postgraduate', 'Madrasa education', 'Other',
+];
+
 const emptySurvey = {
   status: 'DRAFT',
   consent_given: false,
@@ -788,13 +795,7 @@ function Person({ prefix, title, f, set, requiredFields = [], showError = false 
           options={['Married', 'Unmarried', 'Widowed', 'Separated/Divorced']}
           required={isRequired('marital_status')} showError={showError}
         />
-        <Select
-          label="Education" k={`${prefix}_education`} v={f} set={set}
-          options={[
-            'No formal education', 'Primary', 'Middle school', '10th', '12th', 'ITI/Diploma',
-            'Graduate', 'Postgraduate', 'Madrasa education', 'Other',
-          ]}
-        />
+        <Select label="Education" k={`${prefix}_education`} v={f} set={set} options={educationOptions} />
         <Select label="Occupation" k={`${prefix}_occupation`} v={f} set={set} options={occupations} />
         <Input label="Skill" k={`${prefix}_skill`} v={f} set={set} />
         <Select
@@ -840,7 +841,7 @@ function Dependants({ f, set }) {
               label="Gender" k="gender" v={d} set={(key, val) => update(i, key, val)}
               options={['Male', 'Female', 'Other']}
             />
-            <Input label="Education" k="education" v={d} set={(key, val) => update(i, key, val)} />
+            <Select label="Education" k="education" v={d} set={(key, val) => update(i, key, val)} options={educationOptions} />
 
             {d.member_type === 'STUDENT' && (
               <>
