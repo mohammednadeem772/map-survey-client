@@ -78,8 +78,17 @@
   .brand-wordmark {
     @apply h-10 w-auto object-contain sm:h-12;
   }
+  /* Collapsed into a dropdown below `sm` (five links + the wordmark has no
+     room to stay inline on a phone-width screen) — see the nav-toggle
+     button and nav-open class in App.jsx's Shell. */
+  .nav-toggle {
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-600 transition hover:bg-slate-100 sm:hidden;
+  }
   .top nav {
-    @apply flex items-center gap-1 sm:gap-2;
+    @apply hidden items-center gap-1 sm:flex sm:gap-2;
+  }
+  .top nav.nav-open {
+    @apply absolute inset-x-0 top-16 z-10 flex flex-col gap-1 border-b border-slate-200 bg-white p-3 shadow-lg sm:static sm:z-auto sm:flex-row sm:items-center sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none;
   }
   .top nav a,
   .top nav .link {
@@ -156,10 +165,20 @@
     @apply text-white;
   }
   .footer-credit {
-    @apply flex flex-col items-center gap-1 text-xs text-slate-400 sm:items-end;
+    @apply flex flex-col items-center gap-2 text-xs text-slate-400 sm:items-end;
   }
   .footer-credit a {
     @apply text-slate-300 underline decoration-slate-600 underline-offset-2 hover:text-white;
+  }
+  /* "Powered by AlbinoLabs" badge (see components/PoweredByBadge.jsx) */
+  .powered-badge {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-xs font-medium text-slate-400 no-underline transition hover:border-slate-600 hover:bg-slate-800;
+  }
+  .powered-badge svg {
+    @apply text-amber-500;
+  }
+  .powered-badge b {
+    @apply font-semibold text-white;
   }
 
   /* Auth: two-panel modern login — a branded intro panel (hidden on small
@@ -203,11 +222,17 @@
   .input-icon {
     @apply relative;
   }
-  .input-icon svg {
+  .input-icon > svg {
     @apply pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400;
   }
   .input-icon input {
     @apply pl-10;
+  }
+  .input-icon:has(.input-icon-toggle) input {
+    @apply pr-10;
+  }
+  .input-icon-toggle {
+    @apply absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-600;
   }
   .btn-lg {
     @apply py-3 text-base;

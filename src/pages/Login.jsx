@@ -1,16 +1,18 @@
 // Login form — on success, stores the JWT + user profile and redirects to
 // the dashboard. The API's JWT payload shape is { id, name, email, role, areaId }.
 import React, { useState } from 'react';
-import { Mail, Lock, ShieldCheck, Users, BarChart3 } from 'lucide-react';
+import { Mail, Lock, ShieldCheck, HomeIcon, FileCheck2, Eye, EyeOff } from 'lucide-react';
 import { api } from '../api';
 import { useAuth } from '../App';
 import { useNavigate, Link } from 'react-router-dom';
 import { apiErrorMessage } from '../lib/toast';
 import Spinner from '../components/Spinner';
+import PoweredByBadge from '../components/PoweredByBadge';
 import wordmark from '../assets/map-wordmark.png';
 
 export default function Login() {
   const [form, setForm] = useState({ email: '', password: '' });
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const { setUser } = useAuth();
@@ -38,14 +40,18 @@ export default function Login() {
         <div className="auth-hero">
           <img src={wordmark} alt="Mohalla Adoption Program — Zakat Centre India Initiative" className="brand-wordmark" />
           <div>
-            <h2>Field data, organised.</h2>
-            <p>Sign in to collect household surveys, review submissions, and track community coverage in real time.</p>
+            <h2>Household insight, responsibly collected.</h2>
+            <p>
+              Sign in to record accurate family and household information for the Mohalla Adoption
+              Program, supporting Zakat Center India's community welfare assessments.
+            </p>
           </div>
           <ul className="auth-hero-points">
-            <li><ShieldCheck size={18} aria-hidden="true" /> Role-based secure access</li>
-            <li><Users size={18} aria-hidden="true" /> Built for surveyors, supervisors &amp; admins</li>
-            <li><BarChart3 size={18} aria-hidden="true" /> Live dashboards &amp; reporting</li>
+            <li><HomeIcon size={18} aria-hidden="true" /> Whole-household &amp; family details</li>
+            <li><FileCheck2 size={18} aria-hidden="true" /> Accurate, verifiable records</li>
+            <li><ShieldCheck size={18} aria-hidden="true" /> Confidential, access-controlled data</li>
           </ul>
+          <PoweredByBadge />
         </div>
 
         <form className="auth-card" onSubmit={submit}>
@@ -72,11 +78,19 @@ export default function Login() {
             <div className="input-icon">
               <Lock size={18} aria-hidden="true" />
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 required
               />
+              <button
+                type="button"
+                className="input-icon-toggle"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+              </button>
             </div>
           </label>
 
