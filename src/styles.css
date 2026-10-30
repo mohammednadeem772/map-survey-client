@@ -312,6 +312,18 @@
     @apply border-rose-300 bg-rose-50/60 focus:border-rose-400;
   }
 
+  /* Phone field: a fixed "+91" chip glued to the input's left edge, since
+     every phone number in this form is an Indian mobile number. */
+  .phone-field {
+    @apply flex items-stretch;
+  }
+  .phone-prefix {
+    @apply flex items-center rounded-l-lg border border-r-0 border-slate-300 bg-slate-50 px-3 text-sm font-medium text-slate-500;
+  }
+  .phone-field input {
+    @apply rounded-l-none;
+  }
+
   /* Searchable dropdown (replaces native <select> everywhere in this form —
      see the Select component in SurveyForm.jsx). .combo-label intentionally
      duplicates the base `label` look (grid/gap/weight) since this component

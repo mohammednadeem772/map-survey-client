@@ -47,9 +47,16 @@ function isEmptyValue(v) {
   return v === undefined || v === null || v === '';
 }
 
+// Indian mobile numbers: exactly 10 digits, first digit 6-9 (0-5 are never
+// issued as a mobile prefix). Matches the server's copy of this check in
+// server/src/lib/validation.js.
+const INDIA_PHONE_RE = /^[6-9]\d{9}$/;
+
 function getMissingStep0Fields(f) {
   const missing = REQUIRED_STEP0_FIELDS.filter(([key]) => isEmptyValue(f[key])).map(([, label]) => label);
-  if (!isEmptyValue(f.phone) && String(f.phone).length !== 10) missing.push('Phone (must be exactly 10 digits)');
+  if (!isEmptyValue(f.phone) && !INDIA_PHONE_RE.test(String(f.phone))) {
+    missing.push('Phone (must be a valid 10-digit Indian mobile number)');
+  }
   if (!f.consent_given) missing.unshift('Household informed consent');
   return missing;
 }
@@ -462,8 +469,8 @@ function Input({ label, k, v, set, type = 'text', wide = false, required = false
   const kind = kindFor(k);
   const textMax = TEXT_MAX_LENGTHS[k];
   const missingRequired = required && showError && isEmptyValue(v[k]);
-  const phoneTooShort = k === 'phone' && showError && !isEmptyValue(v[k]) && String(v[k]).length !== 10;
-  const invalid = missingRequired || phoneTooShort;
+  const phoneInvalid = k === 'phone' && showError && !isEmptyValue(v[k]) && !INDIA_PHONE_RE.test(String(v[k]));
+  const invalid = missingRequired || phoneInvalid;
 
   function onChange(e) {
     const raw = e.target.value;
@@ -481,17 +488,32 @@ function Input({ label, k, v, set, type = 'text', wide = false, required = false
         {label}
         {required && <span className="text-rose-500"> *</span>}
       </span>
-      <input
-        // A kind-managed field is always rendered as text + inputMode: a
-        // native <input type="number"> ignores maxLength entirely, which is
-        // exactly the "age/phone has no limit" bug this is fixing.
-        type={kind ? 'text' : type}
-        inputMode={kind ? (kind.mode === 'decimal' ? 'decimal' : 'numeric') : undefined}
-        maxLength={kind?.maxLength ?? textMax}
-        value={v[k] ?? ''}
-        className={invalid ? 'input-invalid' : ''}
-        onChange={onChange}
-      />
+      {k === 'phone' ? (
+        <div className="phone-field">
+          <span className="phone-prefix">+91</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            maxLength={kind.maxLength}
+            value={v[k] ?? ''}
+            className={invalid ? 'input-invalid' : ''}
+            onChange={onChange}
+            placeholder="10-digit mobile number"
+          />
+        </div>
+      ) : (
+        <input
+          // A kind-managed field is always rendered as text + inputMode: a
+          // native <input type="number"> ignores maxLength entirely, which is
+          // exactly the "age/phone has no limit" bug this is fixing.
+          type={kind ? 'text' : type}
+          inputMode={kind ? (kind.mode === 'decimal' ? 'decimal' : 'numeric') : undefined}
+          maxLength={kind?.maxLength ?? textMax}
+          value={v[k] ?? ''}
+          className={invalid ? 'input-invalid' : ''}
+          onChange={onChange}
+        />
+      )}
     </label>
   );
 }
