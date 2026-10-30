@@ -292,9 +292,13 @@
     @apply hover:bg-rose-50 hover:text-rose-600;
   }
 
-  /* Survey form: step tabs */
+  /* Survey form: sticky toolbar (step tabs + actions), frozen below the
+     app's own sticky header while the form scrolls underneath it. */
+  .survey-toolbar {
+    @apply sticky top-16 z-[9] mb-5 border-b border-slate-200/80 bg-white/95 pt-3 shadow-sm backdrop-blur-sm;
+  }
   .steps {
-    @apply mb-5 flex gap-2 overflow-x-auto pb-1;
+    @apply flex gap-2 overflow-x-auto pb-3;
   }
   .steps button {
     @apply flex min-w-[130px] shrink-0 flex-col items-start gap-0.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-bold text-slate-400 shadow-sm transition hover:border-teal-300 hover:text-teal-700;
@@ -307,6 +311,9 @@
   }
   .steps span {
     @apply text-xs font-medium normal-case opacity-80;
+  }
+  .toolbar-actions {
+    @apply flex flex-wrap justify-end gap-2 border-t border-slate-100 py-3;
   }
 
   /* Survey form: sections, grids, choice tags */

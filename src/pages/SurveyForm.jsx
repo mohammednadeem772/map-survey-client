@@ -306,6 +306,26 @@ export default function SurveyForm() {
 
   const steps = ['Household head', 'Spouse', 'Home & welfare', 'Assets & access', 'Family members', 'Review'];
 
+  // Shared by the frozen toolbar (visible while scrolling) and the bottom
+  // of the form (the natural place to look once you reach the end of a
+  // section) — one JSX value (not a nested component — that would remount
+  // on every render) so the two can't drift out of sync.
+  const actionButtons = (
+    <>
+      <button type="button" className="btn secondary" disabled={step === 0} onClick={() => setStep(stepBackward(step))}>
+        Back
+      </button>
+      <button type="button" className="btn secondary" disabled={saving} onClick={() => save('DRAFT')}>
+        Save draft
+      </button>
+      {step < 5 ? (
+        <button type="button" className="btn" onClick={() => goToStep(stepForward(step))}>Continue</button>
+      ) : (
+        <button type="button" className="btn" disabled={saving} onClick={() => save('SUBMITTED')}>Submit survey</button>
+      )}
+    </>
+  );
+
   return (
     <>
       <div className="page-head">
@@ -315,23 +335,30 @@ export default function SurveyForm() {
         </div>
       </div>
 
-      <div className="steps">
-        {steps.map((label, i) => {
-          const disabled = i === 1 && !spouseApplicable;
-          return (
-            <button
-              type="button"
-              className={`${i === step ? 'active' : ''} ${disabled ? 'disabled' : ''}`}
-              disabled={disabled}
-              title={disabled ? 'Not applicable — household head is not married' : undefined}
-              onClick={() => goToStep(i)}
-              key={label}
-            >
-              {i + 1}
-              <span>{label}</span>
-            </button>
-          );
-        })}
+      {/* Frozen while the (often long) form scrolls below it, so the step
+          you're on and the Back/Save/Continue actions never need a scroll
+          back up to reach. `top-16` lines it up right under the app's own
+          sticky header (.top, h-16). */}
+      <div className="survey-toolbar">
+        <div className="steps">
+          {steps.map((label, i) => {
+            const disabled = i === 1 && !spouseApplicable;
+            return (
+              <button
+                type="button"
+                className={`${i === step ? 'active' : ''} ${disabled ? 'disabled' : ''}`}
+                disabled={disabled}
+                title={disabled ? 'Not applicable — household head is not married' : undefined}
+                onClick={() => goToStep(i)}
+                key={label}
+              >
+                {i + 1}
+                <span>{label}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="toolbar-actions">{actionButtons}</div>
       </div>
 
       <form className="card form" onSubmit={(e) => e.preventDefault()}>
@@ -487,19 +514,7 @@ export default function SurveyForm() {
         {step === 4 && <Dependants f={form} set={set} opt={opt} />}
         {step === 5 && <Review f={form} set={set} />}
 
-        <div className="form-actions">
-          <button type="button" className="btn secondary" disabled={step === 0} onClick={() => setStep(stepBackward(step))}>
-            Back
-          </button>
-          <button type="button" className="btn secondary" disabled={saving} onClick={() => save('DRAFT')}>
-            Save draft
-          </button>
-          {step < 5 ? (
-            <button type="button" className="btn" onClick={() => goToStep(stepForward(step))}>Continue</button>
-          ) : (
-            <button type="button" className="btn" disabled={saving} onClick={() => save('SUBMITTED')}>Submit survey</button>
-          )}
-        </div>
+        <div className="form-actions">{actionButtons}</div>
       </form>
     </>
   );
