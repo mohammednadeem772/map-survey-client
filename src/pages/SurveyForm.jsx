@@ -206,6 +206,15 @@ export default function SurveyForm() {
   const [showSpouseErrors, setShowSpouseErrors] = useState(false);
   const [showDependantErrors, setShowDependantErrors] = useState(false);
   const [loadError, setLoadError] = useState('');
+  const formCardRef = useRef(null);
+
+  // The form card scrolls internally (see .survey-form-card), not the page —
+  // so switching steps via Continue/Back/the step tabs/Edit from Review needs
+  // its own scroll-to-top, otherwise the new step opens wherever the previous
+  // one had scrolled to (often its bottom).
+  useEffect(() => {
+    formCardRef.current?.scrollTo({ top: 0 });
+  }, [step]);
 
   const missingStep0Fields = getMissingStep0Fields(form);
   const step0Complete = missingStep0Fields.length === 0;
@@ -429,7 +438,7 @@ export default function SurveyForm() {
         <div className="toolbar-actions">{actionButtons}</div>
       </div>
 
-      <form className="card form survey-form-card" onSubmit={(e) => e.preventDefault()}>
+      <form ref={formCardRef} className="card form survey-form-card" onSubmit={(e) => e.preventDefault()}>
         {step === 0 && (
           <>
             {showStep0Errors && !step0Complete && (
