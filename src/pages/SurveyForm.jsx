@@ -6,20 +6,12 @@ import { MapPin } from 'lucide-react';
 import { api } from '../api';
 import { useNavigate, useParams } from 'react-router-dom';
 
-const occupations = [
-  'Government job', 'Tannery worker', 'Leather cutting/stitching', 'Construction labour',
-  'Daily wage worker', 'Domestic worker', 'Street vendor', 'Auto driver', 'Driver', 'Mechanic',
-  'Electrician', 'Plumber', 'Carpenter', 'Tailor', 'Shop worker', 'Security guard',
-  'Sanitation worker', 'Waste picker', 'Home-based worker', 'IT professional', 'Teacher',
-  'Clerk', 'Medical staff', 'Engineer', 'Unemployed', 'Retired', 'Other',
-];
-
-// Shared by the head/spouse Person fields and the dependants' Education
-// field, so every household member picks from the same fixed list.
-const educationOptions = [
-  'No formal education', 'Primary', 'Middle school', '10th', '12th', 'ITI/Diploma',
-  'Graduate', 'Postgraduate', 'Madrasa education', 'Other',
-];
+// Dropdown option lists (occupation, education, gender, house condition,
+// etc.) are no longer hardcoded here — they're fetched from
+// /api/dropdown-options (admin-managed, see Admin.jsx) via the `opt()`
+// helper inside SurveyForm below. member_type is the one exception: it's a
+// fixed Prisma enum that drives this form's own conditional rendering
+// (STUDENT/WORKING show different fields), not an admin-editable list.
 
 const emptySurvey = {
   status: 'DRAFT',
@@ -191,6 +183,7 @@ export default function SurveyForm() {
   const navigate = useNavigate();
   const [form, setForm] = useState(emptySurvey);
   const [areas, setAreas] = useState([]);
+  const [dropdownOptions, setDropdownOptions] = useState({});
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [showStep0Errors, setShowStep0Errors] = useState(false);
@@ -198,6 +191,12 @@ export default function SurveyForm() {
 
   const missingStep0Fields = getMissingStep0Fields(form);
   const step0Complete = missingStep0Fields.length === 0;
+
+  // Looks up one dropdown's current option values by category key (see
+  // server/src/lib/dropdownCategories.js for the full list). Returns plain
+  // strings, matching what every Select/Choices call already expects —
+  // the column stores the chosen text itself, not the option's row id.
+  const opt = (category) => (dropdownOptions[category] || []).map((o) => o.value);
 
   const spouseApplicable = isSpouseApplicable(form);
   const missingSpouseFields = getMissingSpouseFields(form);
@@ -210,6 +209,11 @@ export default function SurveyForm() {
         setForm((f) => ({ ...f, area_id: res.data[0].id }));
       }
     });
+
+    // Every dropdown's option list — admin-managed (see Admin.jsx), seeded
+    // with the values this form used to hardcode. One call for the whole
+    // form rather than one per field.
+    api.get('/dropdown-options').then((res) => setDropdownOptions(res.data));
 
     if (id) {
       api.get(`/surveys/${id}`).then((res) =>
@@ -365,7 +369,7 @@ export default function SurveyForm() {
                 <Input label="Longitude" k="longitude" v={form} set={set} type="number" />
               </Grid>
             </Section>
-            <Person prefix="head" title="Head of the family" f={form} set={set} requiredFields={['name', 'age', 'gender', 'marital_status']} showError={showStep0Errors} />
+            <Person prefix="head" title="Head of the family" f={form} set={set} opt={opt} requiredFields={['name', 'age', 'gender', 'marital_status']} showError={showStep0Errors} />
           </>
         )}
 
@@ -381,6 +385,7 @@ export default function SurveyForm() {
               title="Spouse details"
               f={form}
               set={set}
+              opt={opt}
               requiredFields={['name', 'age', 'gender']}
               showError={showSpouseErrors}
             />
@@ -395,37 +400,19 @@ export default function SurveyForm() {
           <>
             <Section title="House">
               <Grid>
-                <Select
-                  label="Tenure" k="house_tenure" v={form} set={set}
-                  options={['Own', 'Rented', 'Leased', 'Shared', 'Poromboke / unapproved occupancy']}
-                />
-                <Select
-                  label="Condition" k="house_condition" v={form} set={set}
-                  options={[
-                    'Pucca / concrete', 'Semi-pucca', 'Kutcha / mud', 'Tin or asbestos sheet',
-                    'Temporary shelter', 'Dilapidated / unsafe', 'Homeless',
-                  ]}
-                />
+                <Select label="Tenure" k="house_tenure" v={form} set={set} options={opt('house_tenure')} />
+                <Select label="Condition" k="house_condition" v={form} set={set} options={opt('house_condition')} />
                 <Input label="Rooms" k="rooms" v={form} set={set} type="number" />
-                <Select
-                  label="Toilet access" k="toilet_access" v={form} set={set}
-                  options={['Private household toilet', 'Shared toilet', 'Community toilet', 'No toilet / open defecation']}
-                />
-                <Select
-                  label="Drinking water" k="drinking_water" v={form} set={set}
-                  options={['Piped at home', 'Public tap', 'Borewell', 'Tanker', 'Purchased can', 'Other']}
-                />
-                <Select
-                  label="Electricity" k="electricity_access" v={form} set={set}
-                  options={['Regular connection', 'Shared connection', 'Irregular / disconnected', 'No electricity']}
-                />
+                <Select label="Toilet access" k="toilet_access" v={form} set={set} options={opt('toilet_access')} />
+                <Select label="Drinking water" k="drinking_water" v={form} set={set} options={opt('drinking_water')} />
+                <Select label="Electricity" k="electricity_access" v={form} set={set} options={opt('electricity_access')} />
               </Grid>
             </Section>
 
             <Section title="Debt, schemes and health">
               <Choices
                 title="Loan types"
-                items={['Bank', 'Money lender', 'EMI', 'Credit card', 'Family hand loan', 'Self-help group', 'Employer advance']}
+                items={opt('loan_type')}
                 selected={form.loan_types}
                 toggle={(x) => toggle('loan_types', x)}
               />
@@ -452,23 +439,17 @@ export default function SurveyForm() {
             <Section title="Documents and financial inclusion">
               <Grid>
                 <YesNo label="Ration card" k="ration_card" v={form} set={set} />
-                <Select
-                  label="Aadhaar status" k="aadhaar_status" v={form} set={set}
-                  options={['All members', 'Some members', 'No member']}
-                />
+                <Select label="Aadhaar status" k="aadhaar_status" v={form} set={set} options={opt('aadhaar_status')} />
                 <YesNo label="Health card" k="health_card" v={form} set={set} />
                 <YesNo label="Bank account" k="bank_account" v={form} set={set} />
-                <Select
-                  label="Voter ID" k="voter_id_status" v={form} set={set}
-                  options={['Yes for all eligible', 'Some have, some do not', 'None']}
-                />
+                <Select label="Voter ID" k="voter_id_status" v={form} set={set} options={opt('voter_id_status')} />
               </Grid>
             </Section>
 
             <Section title="Assets and connectivity">
               <Choices
                 title="Vehicles"
-                items={['Car', 'Bike', 'Cycle', 'Passenger auto', 'Load auto', 'None']}
+                items={opt('vehicle')}
                 selected={form.vehicles}
                 toggle={(x) => toggle('vehicles', x)}
               />
@@ -477,19 +458,13 @@ export default function SurveyForm() {
                 <YesNo label="Television" k="television" v={form} set={set} />
                 {form.television && (
                   <>
-                    <Select label="TV connection" k="tv_connection" v={form} set={set} options={['Cable', 'DTH', 'Internet only', 'No connection']} />
-                    <Select label="TV type" k="tv_type" v={form} set={set} options={['CRT TV', 'LCD/LED', 'Smart TV']} />
+                    <Select label="TV connection" k="tv_connection" v={form} set={set} options={opt('tv_connection')} />
+                    <Select label="TV type" k="tv_type" v={form} set={set} options={opt('tv_type')} />
                   </>
                 )}
                 <YesNo label="Washing machine" k="washing_machine" v={form} set={set} />
-                <Select
-                  label="Smartphone access" k="smartphone_access" v={form} set={set}
-                  options={['Everyone eligible has one', 'Some have, some do not', 'No smartphone']}
-                />
-                <Select
-                  label="Internet access" k="internet_access" v={form} set={set}
-                  options={['Home broadband', 'Mobile data', 'Occasional access', 'No access']}
-                />
+                <Select label="Smartphone access" k="smartphone_access" v={form} set={set} options={opt('smartphone_access')} />
+                <Select label="Internet access" k="internet_access" v={form} set={set} options={opt('internet_access')} />
               </Grid>
             </Section>
 
@@ -497,18 +472,11 @@ export default function SurveyForm() {
               <Grid>
                 <Input label="Monthly household income (₹)" k="monthly_household_income" v={form} set={set} type="number" />
                 <Input label="Monthly household expense (₹)" k="monthly_household_expense" v={form} set={set} type="number" />
-                <Select
-                  label="Food security" k="food_security" v={form} set={set}
-                  options={['Secure throughout month', 'Occasional shortage', 'Frequent shortage', 'Severe shortage']}
-                />
+                <Select label="Food security" k="food_security" v={form} set={set} options={opt('food_security')} />
               </Grid>
               <Choices
                 title="Vulnerability flags"
-                items={[
-                  'Widow-headed household', 'Single parent', 'Elderly living alone', 'Person with disability',
-                  'Orphan support needed', 'School dropout', 'Unemployed primary earner', 'Unsafe housing',
-                  'Chronic illness',
-                ]}
+                items={opt('vulnerable_category')}
                 selected={form.vulnerable_category}
                 toggle={(x) => toggle('vulnerable_category', x)}
               />
@@ -516,7 +484,7 @@ export default function SurveyForm() {
           </>
         )}
 
-        {step === 4 && <Dependants f={form} set={set} />}
+        {step === 4 && <Dependants f={form} set={set} opt={opt} />}
         {step === 5 && <Review f={form} set={set} />}
 
         <div className="form-actions">
@@ -777,7 +745,7 @@ function Choices({ title, items, selected = [], toggle }) {
 // (e.g. ['name','age',...]) marks matching fields as required — used for
 // the head of family on step 0; the spouse step passes none, since a spouse
 // section is only relevant to some households.
-function Person({ prefix, title, f, set, requiredFields = [], showError = false }) {
+function Person({ prefix, title, f, set, opt, requiredFields = [], showError = false }) {
   const isRequired = (field) => requiredFields.includes(field);
   return (
     <Section title={title}>
@@ -785,21 +753,18 @@ function Person({ prefix, title, f, set, requiredFields = [], showError = false 
         <Input label="Name" k={`${prefix}_name`} v={f} set={set} required={isRequired('name')} showError={showError} />
         <Input label="Age" k={`${prefix}_age`} v={f} set={set} type="number" required={isRequired('age')} showError={showError} />
         <Select
-          label="Gender" k={`${prefix}_gender`} v={f} set={set} options={['Male', 'Female', 'Other', 'Prefer not to say']}
+          label="Gender" k={`${prefix}_gender`} v={f} set={set} options={opt('gender')}
           required={isRequired('gender')} showError={showError}
         />
         <Select
           label="Marital status" k={`${prefix}_marital_status`} v={f} set={set}
-          options={['Married', 'Unmarried', 'Widowed', 'Separated/Divorced']}
+          options={opt('marital_status')}
           required={isRequired('marital_status')} showError={showError}
         />
-        <Select label="Education" k={`${prefix}_education`} v={f} set={set} options={educationOptions} />
-        <Select label="Occupation" k={`${prefix}_occupation`} v={f} set={set} options={occupations} />
+        <Select label="Education" k={`${prefix}_education`} v={f} set={set} options={opt('education')} />
+        <Select label="Occupation" k={`${prefix}_occupation`} v={f} set={set} options={opt('occupation')} />
         <Input label="Skill" k={`${prefix}_skill`} v={f} set={set} />
-        <Select
-          label="Namaz" k={`${prefix}_namaz`} v={f} set={set}
-          options={['Regular 5 times', 'Often', 'Occasionally', 'Friday only', 'Not currently', 'Not applicable / prefer not to say']}
-        />
+        <Select label="Namaz" k={`${prefix}_namaz`} v={f} set={set} options={opt('namaz')} />
         <Input label="Monthly income (₹)" k={`${prefix}_income`} v={f} set={set} type="number" />
       </Grid>
     </Section>
@@ -808,7 +773,7 @@ function Person({ prefix, title, f, set, requiredFields = [], showError = false 
 
 // Repeatable "family members" section — each row is one row in the
 // `dependants` table once saved (see server/src/routes/surveys.routes.js).
-function Dependants({ f, set }) {
+function Dependants({ f, set, opt }) {
   const add = () => set('dependants', [...f.dependants, { name: '', member_type: 'DEPENDANT' }]);
   const update = (i, key, value) => set('dependants', f.dependants.map((d, j) => (j === i ? { ...d, [key]: value } : d)));
   const remove = (i) => set('dependants', f.dependants.filter((_, j) => j !== i));
@@ -833,13 +798,13 @@ function Dependants({ f, set }) {
             />
             <Select
               label="Relationship" k="relationship" v={d} set={(key, val) => update(i, key, val)}
-              options={['Son', 'Daughter', 'Parent', 'Spouse', 'Other']}
+              options={opt('dependant_relationship')}
             />
             <Select
               label="Gender" k="gender" v={d} set={(key, val) => update(i, key, val)}
-              options={['Male', 'Female', 'Other']}
+              options={opt('gender')}
             />
-            <Select label="Education" k="education" v={d} set={(key, val) => update(i, key, val)} options={educationOptions} />
+            <Select label="Education" k="education" v={d} set={(key, val) => update(i, key, val)} options={opt('education')} />
 
             {d.member_type === 'STUDENT' && (
               <>
@@ -850,7 +815,7 @@ function Dependants({ f, set }) {
 
             {d.member_type === 'WORKING' && (
               <>
-                <Select label="Occupation" k="occupation" v={d} set={(key, val) => update(i, key, val)} options={occupations} />
+                <Select label="Occupation" k="occupation" v={d} set={(key, val) => update(i, key, val)} options={opt('occupation')} />
                 <Input label="Income" k="income" v={d} set={(key, val) => update(i, key, val)} type="number" />
               </>
             )}
@@ -858,7 +823,7 @@ function Dependants({ f, set }) {
             <Input label="Skill" k="skill" v={d} set={(key, val) => update(i, key, val)} />
             <Select
               label="Namaz" k="namaz" v={d} set={(key, val) => update(i, key, val)}
-              options={['Regular 5 times', 'Often', 'Occasionally', 'Not currently']}
+              options={opt('namaz')}
             />
             <Input
               label="Disability / health needs" k="disability_or_health_need" v={d} set={(key, val) => update(i, key, val)}

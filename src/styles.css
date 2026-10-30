@@ -236,6 +236,24 @@
   .admin-grid h2 {
     @apply text-lg font-bold text-slate-900;
   }
+  .option-add-row {
+    @apply mt-3 flex gap-2;
+  }
+  .option-add-row input {
+    @apply flex-1;
+  }
+  .option-add-row button {
+    @apply w-auto;
+  }
+  .option-chips {
+    @apply mt-4 flex flex-wrap gap-2;
+  }
+  .option-chip {
+    @apply flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 py-1 pl-3 pr-1.5 text-sm text-slate-700;
+  }
+  .option-chip-inactive {
+    @apply border-slate-100 bg-slate-50/60 text-slate-400 line-through;
+  }
 
   /* Surveys listing: search + filters bar, per-row actions, empty state */
   .survey-filters {
