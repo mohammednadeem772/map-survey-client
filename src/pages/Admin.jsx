@@ -10,6 +10,15 @@ import IconButton from '../components/IconButton';
 const emptyUser = { name: '', email: '', password: '', role: 'SURVEYOR', area_id: '' };
 const emptyArea = { name: '', ward_code: '', target_households: 0 };
 
+// Same bug class as the survey form's numeric fields (see SurveyForm.jsx):
+// a plain <input type="number"> has no max length, so "target households"
+// could run on forever. Keeps only digits and clamps into a sane range.
+function sanitizeDigits(raw, { maxLength, max }) {
+  let s = String(raw).replace(/[^0-9]/g, '').slice(0, maxLength);
+  if (s && max !== undefined) s = String(Math.min(max, parseInt(s, 10)));
+  return s;
+}
+
 export default function Admin() {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState([]);
@@ -37,7 +46,8 @@ export default function Admin() {
 
   async function addArea(e) {
     e.preventDefault();
-    await api.post('/areas', areaForm);
+    const target_households = areaForm.target_households === '' ? 0 : Number(areaForm.target_households);
+    await api.post('/areas', { ...areaForm, target_households });
     setAreaForm(emptyArea);
     load();
   }
@@ -71,7 +81,8 @@ export default function Admin() {
             Name
             <input
               value={areaForm.name}
-              onChange={(e) => setAreaForm({ ...areaForm, name: e.target.value })}
+              onChange={(e) => setAreaForm({ ...areaForm, name: e.target.value.slice(0, 120) })}
+              maxLength={120}
               required
             />
           </label>
@@ -79,16 +90,21 @@ export default function Admin() {
             Ward code
             <input
               value={areaForm.ward_code}
-              onChange={(e) => setAreaForm({ ...areaForm, ward_code: e.target.value })}
+              onChange={(e) => setAreaForm({ ...areaForm, ward_code: e.target.value.slice(0, 50) })}
+              maxLength={50}
               required
             />
           </label>
           <label>
             Target houses
             <input
-              type="number"
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
               value={areaForm.target_households}
-              onChange={(e) => setAreaForm({ ...areaForm, target_households: e.target.value })}
+              onChange={(e) =>
+                setAreaForm({ ...areaForm, target_households: sanitizeDigits(e.target.value, { maxLength: 6, max: 999999 }) })
+              }
             />
           </label>
           <button className="btn">Create area</button>
@@ -100,7 +116,8 @@ export default function Admin() {
             Name
             <input
               value={userForm.name}
-              onChange={(e) => setUserForm({ ...userForm, name: e.target.value })}
+              onChange={(e) => setUserForm({ ...userForm, name: e.target.value.slice(0, 120) })}
+              maxLength={120}
               required
             />
           </label>
@@ -109,7 +126,8 @@ export default function Admin() {
             <input
               type="email"
               value={userForm.email}
-              onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
+              onChange={(e) => setUserForm({ ...userForm, email: e.target.value.slice(0, 180) })}
+              maxLength={180}
               required
             />
           </label>
@@ -118,7 +136,9 @@ export default function Admin() {
             <input
               type="password"
               value={userForm.password}
-              onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
+              onChange={(e) => setUserForm({ ...userForm, password: e.target.value.slice(0, 72) })}
+              minLength={8}
+              maxLength={72}
               required
             />
           </label>

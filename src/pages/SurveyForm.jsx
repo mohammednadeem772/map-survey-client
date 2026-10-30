@@ -34,6 +34,7 @@ const parseJsonArray = (value) => (Array.isArray(value) ? value : value ? JSON.p
 // when it's empty/undefined/null; `0` is a valid age, so it isn't treated
 // as missing.
 const REQUIRED_STEP0_FIELDS = [
+  ['area_id', 'Area / Ward'],
   ['address', 'Address'],
   ['phone', 'Phone'],
   ['head_name', 'Head of family — Name'],
@@ -48,8 +49,108 @@ function isEmptyValue(v) {
 
 function getMissingStep0Fields(f) {
   const missing = REQUIRED_STEP0_FIELDS.filter(([key]) => isEmptyValue(f[key])).map(([, label]) => label);
+  if (!isEmptyValue(f.phone) && String(f.phone).length !== 10) missing.push('Phone (must be exactly 10 digits)');
   if (!f.consent_given) missing.unshift('Household informed consent');
   return missing;
+}
+
+// ── Field "kinds" ────────────────────────────────────────────────────────
+// Every numeric/phone field in this form shares the same bug class: a plain
+// <input type="number"> has no max length (so "age" can run on forever) and
+// a plain <input type="text"> (phone) accepts any character at all. Instead
+// of fixing each field one at a time, every Input call derives a "kind" from
+// its field key, which drives character filtering, a clamped range, and a
+// matching maxLength/inputMode — so the invalid state is unreachable instead
+// of merely flagged. Ranges and lengths mirror the actual Decimal/Int/VarChar
+// column definitions in server/prisma/schema.prisma.
+const FIELD_KINDS = {
+  phone: { mode: 'digits', maxLength: 15, emptyValue: null },
+  age: { mode: 'int', min: 0, max: 120, maxLength: 3, emptyValue: null },
+  rooms: { mode: 'int', min: 0, max: 50, maxLength: 2, emptyValue: null },
+  amount: { mode: 'int', min: 0, max: 99999999, maxLength: 8, emptyValue: 0 },
+  latitude: { mode: 'decimal', min: -90, max: 90, maxLength: 12, emptyValue: null },
+  longitude: { mode: 'decimal', min: -180, max: 180, maxLength: 13, emptyValue: null },
+};
+
+// Every ₹ amount field in the form — all Decimal(12,2) columns that default
+// to 0 (never null) in the database.
+const AMOUNT_FIELDS = new Set([
+  'head_income', 'spouse_income', 'income',
+  'loan_amount', 'govt_scheme_amount', 'bedridden_monthly_expense',
+  'monthly_household_income', 'monthly_household_expense',
+]);
+
+function kindFor(key) {
+  if (key === 'phone') return FIELD_KINDS.phone;
+  if (key === 'age' || key.endsWith('_age')) return FIELD_KINDS.age;
+  if (key === 'rooms') return FIELD_KINDS.rooms;
+  if (key === 'latitude') return FIELD_KINDS.latitude;
+  if (key === 'longitude') return FIELD_KINDS.longitude;
+  if (AMOUNT_FIELDS.has(key)) return FIELD_KINDS.amount;
+  return null;
+}
+
+// Free-text fields without a numeric "kind" still get a sane cap, matching
+// the VarChar/Text column they're saved to, so a pasted wall of text can't
+// silently get truncated (or rejected) server-side instead.
+const TEXT_MAX_LENGTHS = {
+  address: 2000,
+  name: 120, head_name: 120, spouse_name: 120,
+  skill: 150, head_skill: 150, spouse_skill: 150,
+  education: 100,
+  institution: 150,
+  scholarship_availed: 150,
+  disability_or_health_need: 200,
+  govt_scheme_names: 1000,
+};
+
+// Strips characters that don't belong for this field's kind, caps the
+// length, and clamps a *complete* number into [min, max] — a lone "-" or a
+// trailing "." is left alone so the user can keep typing a negative/decimal
+// value instead of having it overwritten mid-keystroke.
+function sanitizeByKind(raw, kind) {
+  let s = String(raw);
+
+  if (kind.mode === 'decimal') {
+    const negative = s.trim().startsWith('-');
+    s = s.replace(/[^0-9.]/g, '');
+    const dot = s.indexOf('.');
+    if (dot !== -1) s = s.slice(0, dot + 1) + s.slice(dot + 1).replace(/\./g, '');
+    s = (negative ? '-' : '') + s;
+  } else {
+    s = s.replace(/[^0-9]/g, '');
+  }
+
+  if (kind.maxLength) {
+    const sign = s.startsWith('-') ? '-' : '';
+    s = sign + (sign ? s.slice(1) : s).slice(0, kind.maxLength);
+  }
+
+  if (/[0-9]$/.test(s)) {
+    const n = parseFloat(s);
+    if (!Number.isNaN(n)) {
+      let clamped = n;
+      if (kind.min !== undefined) clamped = Math.max(kind.min, clamped);
+      if (kind.max !== undefined) clamped = Math.min(kind.max, clamped);
+      if (clamped !== n) s = String(clamped);
+    }
+  }
+
+  return s;
+}
+
+// Converts the string a kind-managed input holds while being typed into
+// what the API expects: a real number, or the right "empty" value — null
+// for optional columns, 0 for amount columns that default to 0 and are
+// never null — instead of sending a bare '' and letting Prisma reject it.
+function normalizeForSubmit(key, value) {
+  const kind = kindFor(key);
+  if (!kind) return value;
+  const isBlank = value === '' || value === null || value === undefined;
+  if (kind.mode === 'digits') return isBlank ? kind.emptyValue : value;
+  if (isBlank) return kind.emptyValue;
+  const n = kind.mode === 'decimal' ? parseFloat(value) : parseInt(value, 10);
+  return Number.isNaN(n) ? kind.emptyValue : n;
 }
 
 export default function SurveyForm() {
@@ -120,6 +221,14 @@ export default function SurveyForm() {
     setSaving(true);
     try {
       const payload = { ...form, status };
+      for (const key of Object.keys(payload)) payload[key] = normalizeForSubmit(key, payload[key]);
+      if (Array.isArray(payload.dependants)) {
+        payload.dependants = payload.dependants.map((d) => {
+          const nd = { ...d };
+          for (const key of Object.keys(nd)) nd[key] = normalizeForSubmit(key, nd[key]);
+          return nd;
+        });
+      }
       if (id) await api.put(`/surveys/${id}`, payload);
       else await api.post('/surveys', payload);
       navigate('/dashboard');
@@ -173,6 +282,8 @@ export default function SurveyForm() {
                   v={form}
                   set={set}
                   options={areas.map((a) => ({ value: a.id, label: `${a.name} (${a.ward_code})` }))}
+                  required
+                  showError={showStep0Errors}
                 />
                 <Input label="Address" k="address" v={form} set={set} wide required showError={showStep0Errors} />
                 <Input label="Phone" k="phone" v={form} set={set} required showError={showStep0Errors} />
@@ -348,7 +459,19 @@ function Grid({ children }) {
 }
 
 function Input({ label, k, v, set, type = 'text', wide = false, required = false, showError = false }) {
-  const invalid = required && showError && isEmptyValue(v[k]);
+  const kind = kindFor(k);
+  const textMax = TEXT_MAX_LENGTHS[k];
+  const missingRequired = required && showError && isEmptyValue(v[k]);
+  const phoneTooShort = k === 'phone' && showError && !isEmptyValue(v[k]) && String(v[k]).length !== 10;
+  const invalid = missingRequired || phoneTooShort;
+
+  function onChange(e) {
+    const raw = e.target.value;
+    if (kind) set(k, sanitizeByKind(raw, kind));
+    else if (textMax) set(k, raw.slice(0, textMax));
+    else set(k, raw);
+  }
+
   return (
     <label className={wide ? 'wide' : ''}>
       {/* Label text + asterisk must stay in one element: `label` is
@@ -359,10 +482,15 @@ function Input({ label, k, v, set, type = 'text', wide = false, required = false
         {required && <span className="text-rose-500"> *</span>}
       </span>
       <input
-        type={type}
+        // A kind-managed field is always rendered as text + inputMode: a
+        // native <input type="number"> ignores maxLength entirely, which is
+        // exactly the "age/phone has no limit" bug this is fixing.
+        type={kind ? 'text' : type}
+        inputMode={kind ? (kind.mode === 'decimal' ? 'decimal' : 'numeric') : undefined}
+        maxLength={kind?.maxLength ?? textMax}
         value={v[k] ?? ''}
         className={invalid ? 'input-invalid' : ''}
-        onChange={(e) => set(k, type === 'number' ? (e.target.value === '' ? '' : Number(e.target.value)) : e.target.value)}
+        onChange={onChange}
       />
     </label>
   );
