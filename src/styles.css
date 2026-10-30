@@ -180,6 +180,17 @@
     @apply rounded-lg border border-rose-200 bg-rose-50/70 px-3.5 py-2.5 text-sm font-medium text-rose-700;
   }
 
+  /* Top-level crash screen (see src/components/ErrorBoundary.jsx) */
+  .error-boundary {
+    @apply mx-auto flex min-h-[60vh] max-w-md flex-col items-center justify-center gap-3 px-4 text-center;
+  }
+  .error-boundary h1 {
+    @apply text-xl font-bold text-slate-900;
+  }
+  .error-boundary p {
+    @apply text-sm text-slate-500;
+  }
+
   /* Shared page header */
   .page-head {
     @apply mb-7 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center;

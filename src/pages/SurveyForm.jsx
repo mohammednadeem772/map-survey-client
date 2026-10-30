@@ -4,7 +4,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { MapPin } from 'lucide-react';
 import { api } from '../api';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useToast, apiErrorMessage } from '../lib/toast';
 import Spinner from '../components/Spinner';
 
@@ -191,6 +191,7 @@ export default function SurveyForm() {
   const [saving, setSaving] = useState(false);
   const [showStep0Errors, setShowStep0Errors] = useState(false);
   const [showSpouseErrors, setShowSpouseErrors] = useState(false);
+  const [loadError, setLoadError] = useState('');
 
   const missingStep0Fields = getMissingStep0Fields(form);
   const step0Complete = missingStep0Fields.length === 0;
@@ -206,27 +207,42 @@ export default function SurveyForm() {
   const spouseComplete = missingSpouseFields.length === 0;
 
   useEffect(() => {
-    api.get('/areas').then((res) => {
-      setAreas(res.data);
-      if (!id && res.data.length) {
-        setForm((f) => ({ ...f, area_id: res.data[0].id }));
-      }
-    });
+    api
+      .get('/areas')
+      .then((res) => {
+        setAreas(res.data);
+        if (!id && res.data.length) {
+          setForm((f) => ({ ...f, area_id: res.data[0].id }));
+        }
+      })
+      .catch((err) => toast.error(apiErrorMessage(err, 'Could not load areas.')));
 
     // Every dropdown's option list — admin-managed (see Admin.jsx), seeded
     // with the values this form used to hardcode. One call for the whole
     // form rather than one per field.
-    api.get('/dropdown-options').then((res) => setDropdownOptions(res.data));
+    api
+      .get('/dropdown-options')
+      .then((res) => setDropdownOptions(res.data))
+      .catch((err) => toast.error(apiErrorMessage(err, 'Could not load dropdown options.')));
 
     if (id) {
-      api.get(`/surveys/${id}`).then((res) =>
-        setForm({
-          ...res.data,
-          loan_types: parseJsonArray(res.data.loan_types),
-          vehicles: parseJsonArray(res.data.vehicles),
-          vulnerable_category: parseJsonArray(res.data.vulnerable_category),
-        })
-      );
+      api
+        .get(`/surveys/${id}`)
+        .then((res) =>
+          setForm({
+            ...res.data,
+            loan_types: parseJsonArray(res.data.loan_types),
+            vehicles: parseJsonArray(res.data.vehicles),
+            vulnerable_category: parseJsonArray(res.data.vulnerable_category),
+          })
+        )
+        .catch((err) => {
+          // The one fetch here that leaves the page genuinely unusable if
+          // it silently fails (the form would just stay blank forever —
+          // the exact "page gets stuck" symptom users reported), so this
+          // gets its own error state with a way back out, not just a toast.
+          setLoadError(apiErrorMessage(err, 'Could not load this survey.'));
+        });
     }
   }, [id]);
 
@@ -308,6 +324,14 @@ export default function SurveyForm() {
     } finally {
       setSaving(false);
     }
+  }
+
+  if (loadError) {
+    return (
+      <div className="notice">
+        {loadError} <Link to="/surveys">Back to surveys</Link>
+      </div>
+    );
   }
 
   const steps = ['Household head', 'Spouse', 'Home & welfare', 'Assets & access', 'Family members', 'Review'];

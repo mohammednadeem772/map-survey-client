@@ -1,8 +1,10 @@
 // KPI tiles + charts, driven entirely by GET /dashboard/summary (role-scoped
 // server-side) plus the survey list for the "recent surveys" table.
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../App';
+import { apiErrorMessage } from '../lib/toast';
 import StatusPill from '../components/StatusPill';
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell,
@@ -13,15 +15,34 @@ const COLORS = ['#0f766e', '#14b8a6', '#f59e0b', '#7c3aed', '#ef4444'];
 export default function Dashboard() {
   const [summary, setSummary] = useState(null);
   const [surveys, setSurveys] = useState([]);
+  const [error, setError] = useState('');
   const { user } = useAuth();
 
+  function load() {
+    setError('');
+    Promise.all([api.get('/dashboard/summary'), api.get('/surveys')])
+      .then(([a, b]) => {
+        setSummary(a.data);
+        setSurveys(b.data);
+      })
+      .catch((err) => setError(apiErrorMessage(err, 'Could not load the dashboard.')));
+  }
+
   useEffect(() => {
-    Promise.all([api.get('/dashboard/summary'), api.get('/surveys')]).then(([a, b]) => {
-      setSummary(a.data);
-      setSurveys(b.data);
-    });
+    load();
   }, []);
 
+  // Without an error state here, a failed request left `summary` null
+  // forever and this page just said "Loading…" with no way out — exactly
+  // the "app gets stuck" symptom report. A retry button is a real recovery
+  // path instead of forcing a full reload.
+  if (error) {
+    return (
+      <div className="notice">
+        {error} <button type="button" className="link" onClick={load}>Retry</button>
+      </div>
+    );
+  }
   if (!summary) return <p>Loading dashboard…</p>;
   const kpis = summary.kpis;
 
@@ -32,7 +53,7 @@ export default function Dashboard() {
           <h1>{user.role === 'SURVEYOR' ? 'My surveys' : 'Mohalla dashboard'}</h1>
           <p>Live coverage and socio-economic indicators within your access scope.</p>
         </div>
-        <a className="btn" href="/survey/new">New survey</a>
+        <Link className="btn" to="/survey/new">New survey</Link>
       </div>
 
       <section className="kpis">

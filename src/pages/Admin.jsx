@@ -34,10 +34,12 @@ export default function Admin() {
   const [savingArea, setSavingArea] = useState(false);
 
   const load = () =>
-    Promise.all([api.get('/users'), api.get('/areas')]).then(([u, a]) => {
-      setUsers(u.data);
-      setAreas(a.data);
-    });
+    Promise.all([api.get('/users'), api.get('/areas')])
+      .then(([u, a]) => {
+        setUsers(u.data);
+        setAreas(a.data);
+      })
+      .catch((err) => toast.error(apiErrorMessage(err, 'Could not load the admin data.')));
 
   useEffect(() => {
     load();

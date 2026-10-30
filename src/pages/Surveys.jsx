@@ -34,6 +34,7 @@ export default function Surveys() {
         setSurveys(s.data);
         setAreas(a.data);
       })
+      .catch((err) => toast.error(apiErrorMessage(err, 'Could not load surveys.')))
       .finally(() => setLoading(false));
   }
 

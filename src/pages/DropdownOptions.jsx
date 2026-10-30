@@ -47,7 +47,11 @@ export default function DropdownOptions() {
   const [adding, setAdding] = useState(false);
   const [busyId, setBusyId] = useState(null);
 
-  const load = () => api.get('/dropdown-options?includeInactive=true').then((res) => setOptions(res.data));
+  const load = () =>
+    api
+      .get('/dropdown-options?includeInactive=true')
+      .then((res) => setOptions(res.data))
+      .catch((err) => toast.error(apiErrorMessage(err, 'Could not load the dropdown options.')));
 
   useEffect(() => {
     load();
