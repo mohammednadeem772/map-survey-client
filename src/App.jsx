@@ -9,6 +9,7 @@ import SurveyForm from './pages/SurveyForm';
 import Dashboard from './pages/Dashboard';
 import Surveys from './pages/Surveys';
 import Admin from './pages/Admin';
+import logo from './assets/logo.png';
 
 export const Auth = createContext(null);
 export const useAuth = () => useContext(Auth);
@@ -19,7 +20,10 @@ function Shell({ children }) {
   return (
     <>
       <header className="top">
-        <Link to="/dashboard" className="brand">MAP Survey</Link>
+        <Link to="/dashboard" className="brand">
+          <img src={logo} alt="MAP Survey logo" className="brand-logo" />
+          MAP Survey
+        </Link>
         <nav>
           <Link to="/dashboard">Dashboard</Link>
           <Link to="/surveys">Surveys</Link>
