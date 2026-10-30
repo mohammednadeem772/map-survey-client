@@ -52,6 +52,18 @@ export default function Landing() {
 
       <footer>
         <b>An initiative by Zakat Center India, Vaniyambadi Unit</b>
+        <div className="footer-credit">
+          <span>
+            Powered by{' '}
+            <a href="https://www.albinolabstechnologies.com/" target="_blank" rel="noopener noreferrer">
+              Albino Labs Technologies
+            </a>
+          </span>
+          <span>
+            Mohammed Nadeem. S · <a href="tel:+917418828073">+91 74188 28073</a> ·{' '}
+            <a href="mailto:mohammednadeem772@gmail.com">mohammednadeem772@gmail.com</a>
+          </span>
+        </div>
       </footer>
     </div>
   );

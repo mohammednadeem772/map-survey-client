@@ -155,6 +155,12 @@
   .landing footer b {
     @apply text-white;
   }
+  .footer-credit {
+    @apply flex flex-col items-center gap-1 text-xs text-slate-400 sm:items-end;
+  }
+  .footer-credit a {
+    @apply text-slate-300 underline decoration-slate-600 underline-offset-2 hover:text-white;
+  }
 
   /* Auth */
   .auth-page {
