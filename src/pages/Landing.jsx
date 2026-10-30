@@ -1,12 +1,16 @@
 // Public marketing/intro page — no auth required.
 import React from 'react';
 import { Link } from 'react-router-dom';
+import logo from '../assets/logo.png';
 
 export default function Landing() {
   return (
     <div className="landing">
       <header>
-        <strong>Mohalla Adoption Program</strong>
+        <div className="brand">
+          <img src={logo} alt="Mohalla Adoption Program logo" className="brand-logo" />
+          <strong>Mohalla Adoption Program</strong>
+        </div>
         <Link className="btn secondary" to="/login">Team login</Link>
       </header>
 
@@ -51,7 +55,6 @@ export default function Landing() {
 
       <footer>
         <b>An initiative by Zakat Center India, Vaniyambadi Unit</b>
-        <span>In collaboration with The Vaniyambadi Muslim Educational Society (VMES)</span>
       </footer>
     </div>
   );

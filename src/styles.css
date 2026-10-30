@@ -105,6 +105,12 @@
   .landing header {
     @apply mx-auto flex max-w-6xl items-center justify-between px-6 py-6;
   }
+  .brand {
+    @apply flex items-center gap-2;
+  }
+  .brand-logo {
+    @apply h-9 w-9 object-contain;
+  }
   .hero {
     @apply mx-auto grid max-w-6xl items-center gap-12 px-6 py-12 md:grid-cols-[1.3fr_0.7fr] md:py-20;
   }
