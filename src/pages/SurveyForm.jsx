@@ -2,11 +2,13 @@
 // "edit" (/survey/:id). Mirrors the field set the server accepts; see
 // server/src/routes/surveys.routes.js `WRITABLE_FIELDS` for the source of truth.
 import React, { useEffect, useRef, useState } from 'react';
-import { MapPin, Check } from 'lucide-react';
+import { MapPin, Map, Check } from 'lucide-react';
 import { api } from '../api';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useToast, apiErrorMessage } from '../lib/toast';
+import { reverseGeocode } from '../lib/geocode';
 import Spinner from '../components/Spinner';
+import LocationPicker from '../components/LocationPicker';
 
 // Dropdown option lists (occupation, education, gender, house condition,
 // etc.) are no longer hardcoded here — they're fetched from
@@ -457,7 +459,13 @@ export default function SurveyForm() {
                 />
                 <Input label="Address" k="address" v={form} set={set} wide required showError={showStep0Errors} />
                 <Input label="Phone" k="phone" v={form} set={set} required showError={showStep0Errors} />
-                <LocationCapture set={set} auto={!id && isEmptyValue(form.latitude)} />
+                <LocationCapture
+                  set={set}
+                  auto={!id && isEmptyValue(form.latitude)}
+                  addressEmpty={isEmptyValue(form.address)}
+                  latitude={form.latitude}
+                  longitude={form.longitude}
+                />
                 <Input label="Latitude" k="latitude" v={form} set={set} type="number" />
                 <Input label="Longitude" k="longitude" v={form} set={set} type="number" />
               </Grid>
@@ -621,15 +629,35 @@ function Grid({ children }) {
 
 // Fills Latitude/Longitude from the device's GPS instead of requiring a
 // surveyor to read coordinates off some other app and type them in by
-// hand. Tries once automatically when the step loads, but only for a
-// brand-new survey with no coordinates yet (`auto`) — the common case is
-// the surveyor standing at the household being surveyed, but re-opening an
-// *existing* survey to edit it (possibly from the office, days later) must
-// never silently overwrite its real GPS reading with the editor's current
-// location. The button still lets anyone capture/recapture manually.
-function LocationCapture({ set, auto }) {
+// hand, and — like Flipkart/Swiggy's "pick location on map" — reverse-
+// geocodes whatever point is chosen (GPS or a manual map pick) into the
+// Address field. GPS tries once automatically when the step loads, but
+// only for a brand-new survey with no coordinates yet (`auto`) — the
+// common case is the surveyor standing at the household being surveyed,
+// but re-opening an *existing* survey to edit it (possibly from the
+// office, days later) must never silently overwrite its real GPS reading
+// with the editor's current location. The buttons still let anyone
+// capture/recapture/re-pick manually. GPS only fills Address when it's
+// still empty (a background convenience shouldn't clobber something the
+// surveyor already typed); the map picker always fills it, since picking
+// a point there is a deliberate "this is the address" action.
+function LocationCapture({ set, auto, addressEmpty, latitude, longitude }) {
   const [status, setStatus] = useState('idle'); // idle | loading | success | error
   const [message, setMessage] = useState('');
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  async function applyCoords(lat, lng, accuracyMessage) {
+    const roundedLat = Number(lat.toFixed(7));
+    const roundedLng = Number(lng.toFixed(7));
+    set('latitude', roundedLat);
+    set('longitude', roundedLng);
+    setStatus('success');
+    setMessage(accuracyMessage);
+    if (addressEmpty) {
+      const address = await reverseGeocode(roundedLat, roundedLng);
+      if (address) set('address', address);
+    }
+  }
 
   function capture() {
     if (!navigator.geolocation) {
@@ -640,12 +668,7 @@ function LocationCapture({ set, auto }) {
     setStatus('loading');
     setMessage('');
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        set('latitude', Number(pos.coords.latitude.toFixed(7)));
-        set('longitude', Number(pos.coords.longitude.toFixed(7)));
-        setStatus('success');
-        setMessage(`Location captured (accuracy ±${Math.round(pos.coords.accuracy)}m).`);
-      },
+      (pos) => applyCoords(pos.coords.latitude, pos.coords.longitude, `Location captured (accuracy ±${Math.round(pos.coords.accuracy)}m).`),
       (err) => {
         setStatus('error');
         setMessage(
@@ -656,6 +679,15 @@ function LocationCapture({ set, auto }) {
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
+  }
+
+  function onPickerConfirm({ lat, lng, address }) {
+    set('latitude', Number(lat.toFixed(7)));
+    set('longitude', Number(lng.toFixed(7)));
+    if (address) set('address', address);
+    setStatus('success');
+    setMessage('Location set from map.');
+    setPickerOpen(false);
   }
 
   useEffect(() => {
@@ -670,7 +702,19 @@ function LocationCapture({ set, auto }) {
         <MapPin size={16} />
         {status === 'loading' ? 'Capturing location…' : 'Capture current location'}
       </button>
+      <button type="button" className="btn secondary" onClick={() => setPickerOpen(true)}>
+        <Map size={16} />
+        Pick on map
+      </button>
       {message && <span className={status === 'error' ? 'text-rose-500' : 'text-slate-500'}>{message}</span>}
+      {pickerOpen && (
+        <LocationPicker
+          initialLat={latitude}
+          initialLng={longitude}
+          onConfirm={onPickerConfirm}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
     </div>
   );
 }

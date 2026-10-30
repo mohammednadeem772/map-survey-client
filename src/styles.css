@@ -479,6 +479,41 @@
   .location-capture span {
     @apply text-xs;
   }
+
+  /* "Pick location on map" overlay (see components/LocationPicker.jsx) */
+  .map-picker-overlay {
+    @apply fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4;
+  }
+  .map-picker {
+    @apply flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl;
+  }
+  .map-picker-head {
+    @apply flex items-center justify-between border-b border-slate-100 px-5 py-4;
+  }
+  .map-picker-head h2 {
+    @apply text-base font-bold text-slate-900;
+  }
+  .map-picker-search {
+    @apply flex gap-2 border-b border-slate-100 p-3;
+  }
+  .map-picker-search input {
+    @apply flex-1;
+  }
+  .map-picker-results {
+    @apply max-h-40 overflow-y-auto border-b border-slate-100;
+  }
+  .map-picker-results button {
+    @apply block w-full border-b border-slate-50 px-4 py-2.5 text-left text-sm text-slate-700 last:border-0 hover:bg-teal-50 hover:text-teal-800;
+  }
+  .map-picker-map {
+    @apply h-[50vh] w-full;
+  }
+  .map-picker-footer {
+    @apply flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-5 py-4;
+  }
+  .map-picker-footer p {
+    @apply font-mono text-xs text-slate-500;
+  }
   .wide {
     @apply sm:col-span-2;
   }
