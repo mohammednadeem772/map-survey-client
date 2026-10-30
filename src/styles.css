@@ -383,9 +383,13 @@
   }
 
   /* Survey form: sticky toolbar (step tabs + actions), frozen below the
-     app's own sticky header while the form scrolls underneath it. */
+     app's own sticky header while the form scrolls underneath it.
+     pt-5 here balances against the pb-3 + border + pt-2.5 below the steps
+     row (.steps + .toolbar-actions) — both sides of the stepper get
+     roughly the same breathing room instead of the top looking cramped
+     against a much larger gap above the buttons. */
   .survey-toolbar {
-    @apply sticky top-16 z-[9] mb-5 border-b border-slate-200/80 bg-white/95 pt-3 shadow-sm backdrop-blur-sm;
+    @apply sticky top-16 z-[9] mb-5 border-b border-slate-200/80 bg-white/95 pt-5 shadow-sm backdrop-blur-sm;
   }
   /* Stepper: label above a numbered circle, connected by a horizontal line
      — the circle fills solid once its step is current/done, with a
@@ -430,7 +434,7 @@
     @apply bg-teal-700;
   }
   .toolbar-actions {
-    @apply flex flex-wrap justify-end gap-2 border-t border-slate-100 py-3;
+    @apply flex flex-wrap justify-end gap-2 border-t border-slate-100 pb-4 pt-2.5;
   }
 
   /* Survey form: sections, grids, choice tags */
