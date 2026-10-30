@@ -81,6 +81,17 @@ function getMissingSpouseFields(f) {
   return REQUIRED_SPOUSE_FIELDS.filter(([key]) => isEmptyValue(f[key])).map(([, label]) => label);
 }
 
+// A dependant row is only meaningful once it has a name — every other
+// field is situational (not every member is a student/worker, has a
+// known age, etc.). This matches the one NOT NULL constraint on the
+// `dependants.name` column (server/prisma/schema.prisma) rather than
+// arbitrarily requiring every field.
+function getMissingDependantFields(f) {
+  return f.dependants
+    .map((d, i) => (isEmptyValue(d.name) ? `Family member ${i + 1} — Name` : null))
+    .filter(Boolean);
+}
+
 // ── Field "kinds" ────────────────────────────────────────────────────────
 // Every numeric/phone field in this form shares the same bug class: a plain
 // <input type="number"> has no max length (so "age" can run on forever) and
@@ -191,6 +202,7 @@ export default function SurveyForm() {
   const [saving, setSaving] = useState(false);
   const [showStep0Errors, setShowStep0Errors] = useState(false);
   const [showSpouseErrors, setShowSpouseErrors] = useState(false);
+  const [showDependantErrors, setShowDependantErrors] = useState(false);
   const [loadError, setLoadError] = useState('');
 
   const missingStep0Fields = getMissingStep0Fields(form);
@@ -205,6 +217,9 @@ export default function SurveyForm() {
   const spouseApplicable = isSpouseApplicable(form);
   const missingSpouseFields = getMissingSpouseFields(form);
   const spouseComplete = missingSpouseFields.length === 0;
+
+  const missingDependantFields = getMissingDependantFields(form);
+  const dependantsComplete = missingDependantFields.length === 0;
 
   useEffect(() => {
     api
@@ -276,6 +291,11 @@ export default function SurveyForm() {
       setShowSpouseErrors(true);
       return;
     }
+    if (target > 4 && !dependantsComplete) {
+      setStep(4);
+      setShowDependantErrors(true);
+      return;
+    }
     setStep(target);
   }
 
@@ -302,6 +322,11 @@ export default function SurveyForm() {
     if (status === 'SUBMITTED' && spouseApplicable && !spouseComplete) {
       setStep(1);
       setShowSpouseErrors(true);
+      return;
+    }
+    if (status === 'SUBMITTED' && !dependantsComplete) {
+      setStep(4);
+      setShowDependantErrors(true);
       return;
     }
     setSaving(true);
@@ -552,8 +577,26 @@ export default function SurveyForm() {
           </>
         )}
 
-        {step === 4 && <Dependants f={form} set={set} opt={opt} />}
-        {step === 5 && <Review f={form} set={set} />}
+        {step === 4 && (
+          <Dependants
+            f={form}
+            set={set}
+            opt={opt}
+            missingFields={missingDependantFields}
+            showError={showDependantErrors}
+          />
+        )}
+        {step === 5 && (
+          <Review
+            f={form}
+            set={set}
+            goToStep={setStep}
+            spouseApplicable={spouseApplicable}
+            missingStep0Fields={missingStep0Fields}
+            missingSpouseFields={missingSpouseFields}
+            missingDependantFields={missingDependantFields}
+          />
+        )}
 
         <div className="form-actions">{actionButtons}</div>
       </form>
@@ -829,7 +872,7 @@ function Person({ prefix, title, f, set, opt, requiredFields = [], showError = f
 
 // Repeatable "family members" section — each row is one row in the
 // `dependants` table once saved (see server/src/routes/surveys.routes.js).
-function Dependants({ f, set, opt }) {
+function Dependants({ f, set, opt, missingFields = [], showError = false }) {
   const add = () => set('dependants', [...f.dependants, { name: '', member_type: 'DEPENDANT' }]);
   const update = (i, key, value) => set('dependants', f.dependants.map((d, j) => (j === i ? { ...d, [key]: value } : d)));
   const remove = (i) => set('dependants', f.dependants.filter((_, j) => j !== i));
@@ -837,6 +880,11 @@ function Dependants({ f, set, opt }) {
   return (
     <Section title="Family members / dependants">
       <p>Add each dependant. Student and working fields can be filled as applicable.</p>
+      {showError && missingFields.length > 0 && (
+        <div className="notice mb-6">
+          Please complete before continuing: {missingFields.join(', ')}.
+        </div>
+      )}
 
       {f.dependants.map((d, i) => (
         <div className="dependant" key={i}>
@@ -846,7 +894,7 @@ function Dependants({ f, set, opt }) {
           </div>
 
           <Grid>
-            <Input label="Name" k="name" v={d} set={(key, val) => update(i, key, val)} />
+            <Input label="Name" k="name" v={d} set={(key, val) => update(i, key, val)} required showError={showError} />
             <Input label="Age" k="age" v={d} set={(key, val) => update(i, key, val)} type="number" />
             <Select
               label="Type" k="member_type" v={d} set={(key, val) => update(i, key, val || 'DEPENDANT')}
@@ -866,6 +914,7 @@ function Dependants({ f, set, opt }) {
               <>
                 <Input label="School / College" k="institution" v={d} set={(key, val) => update(i, key, val)} />
                 <Input label="Scholarship availed" k="scholarship_availed" v={d} set={(key, val) => update(i, key, val)} />
+                <YesNo label="Part-time job" k="part_time_job" v={d} set={(key, val) => update(i, key, val)} />
               </>
             )}
 
@@ -895,18 +944,135 @@ function Dependants({ f, set, opt }) {
 }
 
 // Read-only summary shown as the final step before saving.
-function Review({ f, set }) {
+// Full read-back of everything entered so far, grouped the same way the
+// form itself is (plus a per-section Edit link that jumps straight there),
+// so a surveyor can spot anything missing or wrong without re-walking
+// every step. Required-but-missing fields (the same ones that block
+// submission — see getMissingStep0Fields/getMissingSpouseFields/
+// getMissingDependantFields) are called out up top; every other empty
+// field just reads "Not entered" since most of the form is optional by
+// design.
+function Review({ f, set, goToStep, spouseApplicable, missingStep0Fields, missingSpouseFields, missingDependantFields }) {
+  const allMissing = [...missingStep0Fields, ...missingSpouseFields, ...missingDependantFields];
+  const yesNo = (v) => (v === true ? 'Yes' : v === false ? 'No' : null);
+  const money = (v) => `₹${Number(v || 0).toLocaleString('en-IN')}`;
+
   return (
     <Section title="Review before submission">
-      <div className="review">
-        <p><b>Head:</b> {f.head_name || 'Not entered'}</p>
-        <p><b>Address:</b> {f.address || 'Not entered'}</p>
-        <p><b>Family members:</b> {f.dependants.length}</p>
-        <p><b>House:</b> {f.house_tenure || 'Not entered'} / {f.house_condition || 'Not entered'}</p>
-        <p><b>Household income:</b> ₹{Number(f.monthly_household_income || 0).toLocaleString('en-IN')}</p>
-        <p><b>Loan outstanding:</b> ₹{Number(f.loan_amount || 0).toLocaleString('en-IN')}</p>
-        <p><b>Vulnerability flags:</b> {f.vulnerable_category.join(', ') || 'None selected'}</p>
-      </div>
+      {allMissing.length > 0 ? (
+        <div className="notice mb-6">
+          <b>Missing required information:</b> {allMissing.join(', ')}.
+        </div>
+      ) : (
+        <div className="review-ready mb-6">All required fields are complete — review the details below, then submit.</div>
+      )}
+
+      <ReviewSection title="Consent and location" onEdit={() => goToStep(0)}>
+        <ReviewRow label="Consent received" value={f.consent_given ? 'Yes' : 'No'} />
+        <ReviewRow label="Address" value={f.address} />
+        <ReviewRow label="Phone" value={f.phone ? `+91 ${f.phone}` : null} />
+        <ReviewRow label="Latitude" value={f.latitude} />
+        <ReviewRow label="Longitude" value={f.longitude} />
+      </ReviewSection>
+
+      <ReviewSection title="Head of the family" onEdit={() => goToStep(0)}>
+        <ReviewRow label="Name" value={f.head_name} />
+        <ReviewRow label="Age" value={f.head_age} />
+        <ReviewRow label="Gender" value={f.head_gender} />
+        <ReviewRow label="Marital status" value={f.head_marital_status} />
+        <ReviewRow label="Education" value={f.head_education} />
+        <ReviewRow label="Occupation" value={f.head_occupation} />
+        <ReviewRow label="Skill" value={f.head_skill} />
+        <ReviewRow label="Namaz" value={f.head_namaz} />
+        <ReviewRow label="Monthly income" value={money(f.head_income)} />
+      </ReviewSection>
+
+      {spouseApplicable && (
+        <ReviewSection title="Spouse details" onEdit={() => goToStep(1)}>
+          <ReviewRow label="Name" value={f.spouse_name} />
+          <ReviewRow label="Age" value={f.spouse_age} />
+          <ReviewRow label="Gender" value={f.spouse_gender} />
+          <ReviewRow label="Marital status" value={f.spouse_marital_status} />
+          <ReviewRow label="Education" value={f.spouse_education} />
+          <ReviewRow label="Occupation" value={f.spouse_occupation} />
+          <ReviewRow label="Skill" value={f.spouse_skill} />
+          <ReviewRow label="Namaz" value={f.spouse_namaz} />
+          <ReviewRow label="Monthly income" value={money(f.spouse_income)} />
+        </ReviewSection>
+      )}
+
+      <ReviewSection title="House" onEdit={() => goToStep(2)}>
+        <ReviewRow label="Tenure" value={f.house_tenure} />
+        <ReviewRow label="Condition" value={f.house_condition} />
+        <ReviewRow label="Rooms" value={f.rooms} />
+        <ReviewRow label="Toilet access" value={f.toilet_access} />
+        <ReviewRow label="Drinking water" value={f.drinking_water} />
+        <ReviewRow label="Electricity" value={f.electricity_access} />
+      </ReviewSection>
+
+      <ReviewSection title="Debt, schemes and health" onEdit={() => goToStep(2)}>
+        <ReviewRow label="Loan types" value={f.loan_types.join(', ')} />
+        <ReviewRow label="Outstanding loan amount" value={money(f.loan_amount)} />
+        <ReviewRow label="Government scheme availed" value={yesNo(f.govt_scheme_availed)} />
+        {f.govt_scheme_availed && <ReviewRow label="Scheme names" value={f.govt_scheme_names} />}
+        {f.govt_scheme_availed && <ReviewRow label="Benefit amount" value={money(f.govt_scheme_amount)} />}
+        <ReviewRow label="Bedridden member" value={yesNo(f.bedridden)} />
+        {f.bedridden && <ReviewRow label="Monthly medical expense" value={money(f.bedridden_monthly_expense)} />}
+      </ReviewSection>
+
+      <ReviewSection title="Documents and financial inclusion" onEdit={() => goToStep(3)}>
+        <ReviewRow label="Ration card" value={yesNo(f.ration_card)} />
+        <ReviewRow label="Aadhaar status" value={f.aadhaar_status} />
+        <ReviewRow label="Health card" value={yesNo(f.health_card)} />
+        <ReviewRow label="Bank account" value={yesNo(f.bank_account)} />
+        <ReviewRow label="Voter ID" value={f.voter_id_status} />
+      </ReviewSection>
+
+      <ReviewSection title="Assets and connectivity" onEdit={() => goToStep(3)}>
+        <ReviewRow label="Vehicles" value={f.vehicles.join(', ')} />
+        <ReviewRow label="Fridge" value={yesNo(f.fridge)} />
+        <ReviewRow label="Television" value={yesNo(f.television)} />
+        {f.television && <ReviewRow label="TV connection" value={f.tv_connection} />}
+        {f.television && <ReviewRow label="TV type" value={f.tv_type} />}
+        <ReviewRow label="Washing machine" value={yesNo(f.washing_machine)} />
+        <ReviewRow label="Smartphone access" value={f.smartphone_access} />
+        <ReviewRow label="Internet access" value={f.internet_access} />
+      </ReviewSection>
+
+      <ReviewSection title="Household economy" onEdit={() => goToStep(3)}>
+        <ReviewRow label="Monthly household income" value={money(f.monthly_household_income)} />
+        <ReviewRow label="Monthly household expense" value={money(f.monthly_household_expense)} />
+        <ReviewRow label="Food security" value={f.food_security} />
+        <ReviewRow label="Vulnerability flags" value={f.vulnerable_category.join(', ')} />
+      </ReviewSection>
+
+      <ReviewSection title={`Family members (${f.dependants.length})`} onEdit={() => goToStep(4)}>
+        {f.dependants.length === 0 ? (
+          <p className="review-missing">No family members added.</p>
+        ) : (
+          f.dependants.map((d, i) => (
+            <div className="review-dependant" key={i}>
+              <b>{d.name || `Member ${i + 1} — name missing`}</b>
+              <div className="review">
+                <ReviewRow label="Age" value={d.age} />
+                <ReviewRow label="Type" value={d.member_type} />
+                <ReviewRow label="Relationship" value={d.relationship} />
+                <ReviewRow label="Gender" value={d.gender} />
+                <ReviewRow label="Education" value={d.education} />
+                {d.member_type === 'STUDENT' && <ReviewRow label="School / College" value={d.institution} />}
+                {d.member_type === 'STUDENT' && <ReviewRow label="Scholarship availed" value={d.scholarship_availed} />}
+                {d.member_type === 'STUDENT' && <ReviewRow label="Part-time job" value={yesNo(d.part_time_job)} />}
+                {d.member_type === 'WORKING' && <ReviewRow label="Occupation" value={d.occupation} />}
+                {d.member_type === 'WORKING' && <ReviewRow label="Income" value={money(d.income)} />}
+                <ReviewRow label="Skill" value={d.skill} />
+                <ReviewRow label="Namaz" value={d.namaz} />
+                <ReviewRow label="Disability / health needs" value={d.disability_or_health_need} />
+              </div>
+            </div>
+          ))
+        )}
+      </ReviewSection>
+
       <label>
         Surveyor notes
         <textarea
@@ -917,5 +1083,26 @@ function Review({ f, set }) {
         />
       </label>
     </Section>
+  );
+}
+
+function ReviewSection({ title, onEdit, children }) {
+  return (
+    <div className="review-block">
+      <div className="review-block-head">
+        <h3>{title}</h3>
+        <button type="button" className="link" onClick={onEdit}>Edit</button>
+      </div>
+      <div className="review">{children}</div>
+    </div>
+  );
+}
+
+function ReviewRow({ label, value }) {
+  const empty = value === null || value === undefined || value === '';
+  return (
+    <p>
+      <b>{label}:</b> {empty ? <span className="review-missing">Not entered</span> : String(value)}
+    </p>
   );
 }
