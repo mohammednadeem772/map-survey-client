@@ -2,6 +2,7 @@
 // "edit" (/survey/:id). Mirrors the field set the server accepts; see
 // server/src/routes/surveys.routes.js `WRITABLE_FIELDS` for the source of truth.
 import React, { useEffect, useRef, useState } from 'react';
+import { MapPin } from 'lucide-react';
 import { api } from '../api';
 import { useNavigate, useParams } from 'react-router-dom';
 
@@ -192,7 +193,13 @@ export default function SurveyForm() {
     }
   }, [id]);
 
-  const set = (key, value) => setForm({ ...form, [key]: value });
+  // Functional updater — not `setForm({ ...form, [key]: value })` — because
+  // LocationCapture calls set('latitude', ...) then set('longitude', ...)
+  // synchronously in one event handler. With a plain closure over `form`,
+  // the second call would overwrite the first (React batches both state
+  // updates before this render's `form` is ever refreshed), silently
+  // dropping the latitude. The updater form always sees the latest state.
+  const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
 
   // Toggles a value in/out of a multi-select array field (loan_types, vehicles, vulnerable_category).
   const toggle = (key, value) =>
@@ -294,6 +301,7 @@ export default function SurveyForm() {
                 />
                 <Input label="Address" k="address" v={form} set={set} wide required showError={showStep0Errors} />
                 <Input label="Phone" k="phone" v={form} set={set} required showError={showStep0Errors} />
+                <LocationCapture set={set} auto={!id && isEmptyValue(form.latitude)} />
                 <Input label="Latitude" k="latitude" v={form} set={set} type="number" />
                 <Input label="Longitude" k="longitude" v={form} set={set} type="number" />
               </Grid>
@@ -463,6 +471,62 @@ function Section({ title, children }) {
 
 function Grid({ children }) {
   return <div className="field-grid">{children}</div>;
+}
+
+// Fills Latitude/Longitude from the device's GPS instead of requiring a
+// surveyor to read coordinates off some other app and type them in by
+// hand. Tries once automatically when the step loads, but only for a
+// brand-new survey with no coordinates yet (`auto`) — the common case is
+// the surveyor standing at the household being surveyed, but re-opening an
+// *existing* survey to edit it (possibly from the office, days later) must
+// never silently overwrite its real GPS reading with the editor's current
+// location. The button still lets anyone capture/recapture manually.
+function LocationCapture({ set, auto }) {
+  const [status, setStatus] = useState('idle'); // idle | loading | success | error
+  const [message, setMessage] = useState('');
+
+  function capture() {
+    if (!navigator.geolocation) {
+      setStatus('error');
+      setMessage('Location is not supported on this device.');
+      return;
+    }
+    setStatus('loading');
+    setMessage('');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        set('latitude', Number(pos.coords.latitude.toFixed(7)));
+        set('longitude', Number(pos.coords.longitude.toFixed(7)));
+        setStatus('success');
+        setMessage(`Location captured (accuracy ±${Math.round(pos.coords.accuracy)}m).`);
+      },
+      (err) => {
+        setStatus('error');
+        setMessage(
+          err.code === err.PERMISSION_DENIED
+            ? 'Location permission denied — enter coordinates manually if needed.'
+            : 'Could not get your location — enter coordinates manually if needed.'
+        );
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  }
+
+  useEffect(() => {
+    if (auto) capture();
+    // Only on mount — this isn't re-run when `set`/`auto` change identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div className="location-capture wide">
+      <button type="button" className="btn secondary" onClick={capture} disabled={status === 'loading'}>
+        <MapPin size={16} />
+        {status === 'loading' ? 'Capturing location…' : 'Capture current location'}
+      </button>
+      {message && <span className={status === 'error' ? 'text-rose-500' : 'text-slate-500'}>{message}</span>}
+    </div>
+  );
 }
 
 function Input({ label, k, v, set, type = 'text', wide = false, required = false, showError = false }) {

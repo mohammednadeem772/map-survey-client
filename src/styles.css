@@ -301,6 +301,15 @@
   .field-grid {
     @apply grid grid-cols-1 gap-x-5 gap-y-5 sm:grid-cols-2 lg:grid-cols-3;
   }
+  .location-capture {
+    @apply flex flex-wrap items-center gap-3;
+  }
+  .location-capture button {
+    @apply inline-flex w-auto items-center gap-2;
+  }
+  .location-capture span {
+    @apply text-xs;
+  }
   .wide {
     @apply sm:col-span-2;
   }
