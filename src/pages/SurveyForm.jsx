@@ -517,7 +517,7 @@ export default function SurveyForm() {
         )}
 
         {step === 4 && <Dependants f={form} set={set} />}
-        {step === 5 && <Review f={form} />}
+        {step === 5 && <Review f={form} set={set} />}
 
         <div className="form-actions">
           <button type="button" className="btn secondary" disabled={step === 0} onClick={() => setStep(stepBackward(step))}>
@@ -874,7 +874,7 @@ function Dependants({ f, set }) {
 }
 
 // Read-only summary shown as the final step before saving.
-function Review({ f }) {
+function Review({ f, set }) {
   return (
     <Section title="Review before submission">
       <div className="review">
@@ -888,7 +888,12 @@ function Review({ f }) {
       </div>
       <label>
         Surveyor notes
-        <textarea rows="5" value={f.notes || ''} onChange={() => {}} readOnly />
+        <textarea
+          rows="5"
+          maxLength={5000}
+          value={f.notes || ''}
+          onChange={(e) => set('notes', e.target.value)}
+        />
       </label>
     </Section>
   );
