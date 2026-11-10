@@ -2,13 +2,14 @@
 // "edit" (/survey/:id). Mirrors the field set the server accepts; see
 // server/src/routes/surveys.routes.js `WRITABLE_FIELDS` for the source of truth.
 import React, { useEffect, useRef, useState } from 'react';
-import { MapPin, Map, Check } from 'lucide-react';
+import { MapPin, Map, Check, Trash2 } from 'lucide-react';
 import { api } from '../api';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useToast, apiErrorMessage } from '../lib/toast';
 import { reverseGeocode } from '../lib/geocode';
 import Spinner from '../components/Spinner';
 import LocationPicker from '../components/LocationPicker';
+import IconButton from '../components/IconButton';
 
 // Dropdown option lists (occupation, education, gender, house condition,
 // etc.) are no longer hardcoded here — they're fetched from
@@ -206,6 +207,7 @@ export default function SurveyForm() {
   const [showSpouseErrors, setShowSpouseErrors] = useState(false);
   const [showDependantErrors, setShowDependantErrors] = useState(false);
   const [loadError, setLoadError] = useState('');
+  const [errorFlashTick, setErrorFlashTick] = useState(0);
   const formCardRef = useRef(null);
 
   // The form card scrolls internally (see .survey-form-card), not the page —
@@ -215,6 +217,23 @@ export default function SurveyForm() {
   useEffect(() => {
     formCardRef.current?.scrollTo({ top: 0 });
   }, [step]);
+
+  // Bumped (see flashFirstInvalidField below) every time Continue/Save
+  // submit blocks on a missing required field, even if it's the same step
+  // as last time (where `step` itself wouldn't change and so couldn't
+  // re-trigger an effect on its own) — so clicking Continue again without
+  // fixing anything still re-scrolls/re-flashes the field that's blocking.
+  useEffect(() => {
+    if (!errorFlashTick) return;
+    const raf = requestAnimationFrame(() => {
+      const field = formCardRef.current?.querySelector('.input-invalid, .combo-trigger-invalid');
+      if (!field) return;
+      field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      field.classList.add('field-flash');
+      setTimeout(() => field.classList.remove('field-flash'), 1200);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [errorFlashTick]);
 
   const missingStep0Fields = getMissingStep0Fields(form);
   const step0Complete = missingStep0Fields.length === 0;
@@ -295,16 +314,19 @@ export default function SurveyForm() {
     if (target > 0 && !step0Complete) {
       setStep(0);
       setShowStep0Errors(true);
+      setErrorFlashTick((t) => t + 1);
       return;
     }
     if (target > 1 && spouseApplicable && !spouseComplete) {
       setStep(1);
       setShowSpouseErrors(true);
+      setErrorFlashTick((t) => t + 1);
       return;
     }
     if (target > 4 && !dependantsComplete) {
       setStep(4);
       setShowDependantErrors(true);
+      setErrorFlashTick((t) => t + 1);
       return;
     }
     setStep(target);
@@ -328,16 +350,19 @@ export default function SurveyForm() {
     if (status === 'SUBMITTED' && !step0Complete) {
       setStep(0);
       setShowStep0Errors(true);
+      setErrorFlashTick((t) => t + 1);
       return;
     }
     if (status === 'SUBMITTED' && spouseApplicable && !spouseComplete) {
       setStep(1);
       setShowSpouseErrors(true);
+      setErrorFlashTick((t) => t + 1);
       return;
     }
     if (status === 'SUBMITTED' && !dependantsComplete) {
       setStep(4);
       setShowDependantErrors(true);
+      setErrorFlashTick((t) => t + 1);
       return;
     }
     setSaving(true);
@@ -406,7 +431,11 @@ export default function SurveyForm() {
       {/* Fixed above the form card (not sticky — the page itself no longer
           scrolls; .survey-form-card below is the thing that scrolls, see
           .survey-page), so the step you're on and the Back/Save/Continue
-          actions are always visible without needing to scroll for them. */}
+          actions are always visible without needing to scroll for them.
+          Steps and actions share one row (wrapping only if the viewport is
+          too narrow for both) instead of stacking on separate rows — that
+          used to make this toolbar tall enough to push most of the form
+          below the fold on a normal desktop window. */}
       <div className="survey-toolbar">
         <div className="steps">
           {steps.map((label, i) => {
@@ -447,13 +476,13 @@ export default function SurveyForm() {
               </div>
             )}
             <Section title="Consent and location">
-              <label className="checkbox">
+              <label className={`checkbox ${showStep0Errors && !form.consent_given ? 'input-invalid' : ''}`}>
                 <input
                   type="checkbox"
                   checked={!!form.consent_given}
                   onChange={(e) => set('consent_given', e.target.checked)}
                 />
-                Household informed consent received
+                Household has given informed consent for this survey
                 {showStep0Errors && !form.consent_given && <span className="text-rose-500"> *</span>}
               </label>
               <Grid>
@@ -466,7 +495,7 @@ export default function SurveyForm() {
                   required
                   showError={showStep0Errors}
                 />
-                <Input label="Address" k="address" v={form} set={set} wide required showError={showStep0Errors} />
+                <Input label="Address" k="address" v={form} set={set} wide required multiline rows={3} showError={showStep0Errors} />
                 <Input label="Phone" k="phone" v={form} set={set} required showError={showStep0Errors} />
                 <LocationCapture
                   set={set}
@@ -475,8 +504,6 @@ export default function SurveyForm() {
                   latitude={form.latitude}
                   longitude={form.longitude}
                 />
-                <Input label="Latitude" k="latitude" v={form} set={set} type="number" />
-                <Input label="Longitude" k="longitude" v={form} set={set} type="number" />
               </Grid>
             </Section>
             <Person prefix="head" title="Head of the family" f={form} set={set} opt={opt} requiredFields={['name', 'age', 'gender', 'marital_status']} showError={showStep0Errors} />
@@ -583,6 +610,7 @@ export default function SurveyForm() {
                 <Input label="Monthly household income (₹)" k="monthly_household_income" v={form} set={set} type="number" />
                 <Input label="Monthly household expense (₹)" k="monthly_household_expense" v={form} set={set} type="number" />
                 <Select label="Food security" k="food_security" v={form} set={set} options={opt('food_security')} />
+                <YesNo label="Zakat eligible" k="zakat_eligible" v={form} set={set} />
               </Grid>
               <Choices
                 title="Vulnerability flags"
@@ -728,7 +756,7 @@ function LocationCapture({ set, auto, addressEmpty, latitude, longitude }) {
   );
 }
 
-function Input({ label, k, v, set, type = 'text', wide = false, required = false, showError = false }) {
+function Input({ label, k, v, set, type = 'text', wide = false, required = false, showError = false, multiline = false, rows = 3 }) {
   const kind = kindFor(k);
   const textMax = TEXT_MAX_LENGTHS[k];
   const missingRequired = required && showError && isEmptyValue(v[k]);
@@ -751,7 +779,15 @@ function Input({ label, k, v, set, type = 'text', wide = false, required = false
         {label}
         {required && <span className="text-rose-500"> *</span>}
       </span>
-      {k === 'phone' ? (
+      {multiline ? (
+        <textarea
+          rows={rows}
+          maxLength={textMax}
+          value={v[k] ?? ''}
+          className={invalid ? 'input-invalid' : ''}
+          onChange={onChange}
+        />
+      ) : k === 'phone' ? (
         <div className="phone-field">
           <span className="phone-prefix">+91</span>
           <input
@@ -943,7 +979,7 @@ function Dependants({ f, set, opt, missingFields = [], showError = false }) {
         <div className="dependant" key={i}>
           <div className="dependant-head">
             <h3>Member {i + 1}</h3>
-            <button type="button" className="danger" onClick={() => remove(i)}>Remove</button>
+            <IconButton icon={Trash2} label="Remove this family member" variant="danger" onClick={() => remove(i)} />
           </div>
 
           <Grid>
@@ -960,6 +996,10 @@ function Dependants({ f, set, opt, missingFields = [], showError = false }) {
             <Select
               label="Gender" k="gender" v={d} set={(key, val) => update(i, key, val)}
               options={opt('gender')}
+            />
+            <Select
+              label="Marital status" k="marital_status" v={d} set={(key, val) => update(i, key, val)}
+              options={opt('marital_status')}
             />
             <Select label="Education" k="education" v={d} set={(key, val) => update(i, key, val)} options={opt('education')} />
 
@@ -1096,6 +1136,7 @@ function Review({ f, set, goToStep, spouseApplicable, missingStep0Fields, missin
         <ReviewRow label="Monthly household income" value={money(f.monthly_household_income)} />
         <ReviewRow label="Monthly household expense" value={money(f.monthly_household_expense)} />
         <ReviewRow label="Food security" value={f.food_security} />
+        <ReviewRow label="Zakat eligible" value={yesNo(f.zakat_eligible)} />
         <ReviewRow label="Vulnerability flags" value={f.vulnerable_category.join(', ')} />
       </ReviewSection>
 
@@ -1111,6 +1152,7 @@ function Review({ f, set, goToStep, spouseApplicable, missingStep0Fields, missin
                 <ReviewRow label="Type" value={d.member_type} />
                 <ReviewRow label="Relationship" value={d.relationship} />
                 <ReviewRow label="Gender" value={d.gender} />
+                <ReviewRow label="Marital status" value={d.marital_status} />
                 <ReviewRow label="Education" value={d.education} />
                 {d.member_type === 'STUDENT' && <ReviewRow label="School / College" value={d.institution} />}
                 {d.member_type === 'STUDENT' && <ReviewRow label="Scholarship availed" value={d.scholarship_availed} />}
